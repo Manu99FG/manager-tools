@@ -16,15 +16,20 @@ import {
 } from "@/lib/esms-player";
 
 import {
-  getNationalityFlag,
+  getFlagUrl,
 } from "@/lib/nationalities";
 
 type PlayerSortKey =
   | keyof EsmsPlayer
   | "position";
 
-type SortDirection = "asc" | "desc";
+type SortDirection =
+  | "asc"
+  | "desc";
 
+/*
+ * Orden de las posiciones ESMS.
+ */
 const positionOrder: Record<
   EsmsPosition,
   number
@@ -37,15 +42,23 @@ const positionOrder: Record<
   FW: 6,
 };
 
+/*
+ * Color visual de cada posición.
+ */
 const positionColors: Record<
   EsmsPosition,
   string
 > = {
   GK: "bg-yellow-400 text-black",
+
   DF: "bg-blue-500 text-white",
+
   DM: "bg-cyan-500 text-slate-950",
+
   MF: "bg-green-500 text-slate-950",
+
   AM: "bg-violet-500 text-white",
+
   FW: "bg-red-500 text-white",
 };
 
@@ -57,22 +70,31 @@ export default function PlayersTable({
   team: string;
 }) {
   const [sortKey, setSortKey] =
-    useState<PlayerSortKey | null>(null);
-
-  const [sortDirection, setSortDirection] =
-    useState<SortDirection>("asc");
-
-  const [positions, setPositions] =
-    useState<Record<string, EsmsPosition>>(
-      {}
+    useState<PlayerSortKey | null>(
+      null
     );
 
+  const [
+    sortDirection,
+    setSortDirection,
+  ] = useState<SortDirection>("asc");
+
+  const [
+    positions,
+    setPositions,
+  ] = useState<
+    Record<string, EsmsPosition>
+  >({});
+
   /*
-   * Clave única por equipo + jugador.
+   * Crea una clave única por:
    *
-   * Así dos jugadores con el mismo nombre
-   * pero en equipos distintos no comparten
-   * posición almacenada.
+   * equipo + jugador
+   *
+   * Ejemplo:
+   *
+   * RMA:Vinicius_Jr
+   * FCB:Lamine_Yamal
    */
   function getPlayerKey(
     player: EsmsPlayer
@@ -81,11 +103,12 @@ export default function PlayersTable({
   }
 
   /*
-   * Carga y conserva la última posición
-   * conocida del jugador.
+   * Recuperamos la posición anterior
+   * del jugador desde localStorage.
    *
-   * Esto sirve para resolver empates
-   * de medias principales.
+   * Esto permite conservar la posición
+   * cuando dos medias principales
+   * terminan empatadas.
    */
   useEffect(() => {
     const resolved: Record<
@@ -101,16 +124,18 @@ export default function PlayersTable({
         `manager-tools-position:${playerKey}`;
 
       const previousPosition =
-        localStorage.getItem(storageKey) as
-          | EsmsPosition
-          | null;
+        localStorage.getItem(
+          storageKey
+        ) as EsmsPosition | null;
 
       /*
-       * Si no existe empate:
-       * recalculamos normalmente la posición
-       * y la guardamos.
+       * Si NO hay empate de medias,
+       * calculamos normalmente
+       * la posición.
        */
-      if (!hasMainRatingTie(player)) {
+      if (
+        !hasMainRatingTie(player)
+      ) {
         const currentPosition =
           getPlayerProfile(player);
 
@@ -126,8 +151,9 @@ export default function PlayersTable({
       }
 
       /*
-       * Si existe empate y ya conocíamos
-       * la posición anterior, la conservamos.
+       * Si hay empate y ya conocemos
+       * la posición anterior,
+       * conservamos esa posición.
        */
       if (previousPosition) {
         resolved[playerKey] =
@@ -137,9 +163,9 @@ export default function PlayersTable({
       }
 
       /*
-       * Si Manager Tools ve al jugador
-       * por primera vez estando ya empatado,
-       * utilizamos la regla de respaldo.
+       * Si vemos al jugador por primera
+       * vez estando empatado,
+       * usamos el fallback ESMS.
        */
       resolved[playerKey] =
         getTieFallbackPosition(player);
@@ -149,8 +175,8 @@ export default function PlayersTable({
   }, [players, team]);
 
   /*
-   * Devuelve la posición definitiva
-   * que mostraremos en la tabla.
+   * Obtiene la posición definitiva
+   * que debe mostrar la tabla.
    */
   function resolvePosition(
     player: EsmsPlayer
@@ -165,13 +191,13 @@ export default function PlayersTable({
   }
 
   /*
-   * Ordenación.
+   * Control de ordenación.
    *
    * Primer clic:
-   * ascendente.
+   * ASC
    *
    * Segundo clic:
-   * descendente.
+   * DESC
    */
   function handleSort(
     key: PlayerSortKey
@@ -192,76 +218,102 @@ export default function PlayersTable({
   }
 
   /*
-   * Si no se ha pulsado ninguna columna,
-   * conservamos exactamente el orden
-   * del archivo ESMS.
+   * Lista de jugadores ordenada.
+   *
+   * Si no hemos pulsado ninguna
+   * cabecera, mantenemos exactamente
+   * el orden del archivo ESMS.
    */
-  const sortedPlayers = useMemo(() => {
-    if (!sortKey) {
-      return players;
-    }
-
-    return [...players].sort((a, b) => {
-      /*
-       * Ordenación especial por posición.
-       */
-      if (sortKey === "position") {
-        const positionA =
-          resolvePosition(a);
-
-        const positionB =
-          resolvePosition(b);
-
-        const result =
-          positionOrder[positionA] -
-          positionOrder[positionB];
-
-        return sortDirection === "asc"
-          ? result
-          : -result;
+  const sortedPlayers =
+    useMemo(() => {
+      if (!sortKey) {
+        return players;
       }
 
-      const aValue = a[sortKey];
-      const bValue = b[sortKey];
+      return [...players].sort(
+        (a, b) => {
+          /*
+           * Ordenación por posición.
+           */
+          if (
+            sortKey === "position"
+          ) {
+            const positionA =
+              resolvePosition(a);
 
-      /*
-       * Columnas numéricas.
-       */
-      if (
-        typeof aValue === "number" &&
-        typeof bValue === "number"
-      ) {
-        return sortDirection === "asc"
-          ? aValue - bValue
-          : bValue - aValue;
-      }
+            const positionB =
+              resolvePosition(b);
 
-      /*
-       * Texto:
-       * Name, Nat, etc.
-       */
-      const result =
-        String(aValue).localeCompare(
-          String(bValue),
-          "es",
-          {
-            sensitivity: "base",
+            const result =
+              positionOrder[
+                positionA
+              ] -
+              positionOrder[
+                positionB
+              ];
+
+            return sortDirection ===
+              "asc"
+              ? result
+              : -result;
           }
-        );
 
-      return sortDirection === "asc"
-        ? result
-        : -result;
-    });
-  }, [
-    players,
-    positions,
-    sortDirection,
-    sortKey,
-  ]);
+          const aValue =
+            a[sortKey];
+
+          const bValue =
+            b[sortKey];
+
+          /*
+           * Valores numéricos.
+           */
+          if (
+            typeof aValue ===
+              "number" &&
+            typeof bValue ===
+              "number"
+          ) {
+            return sortDirection ===
+              "asc"
+              ? aValue - bValue
+              : bValue - aValue;
+          }
+
+          /*
+           * Valores de texto.
+           *
+           * Name
+           * Nat
+           * etc.
+           */
+          const result =
+            String(
+              aValue
+            ).localeCompare(
+              String(bValue),
+              "es",
+              {
+                sensitivity:
+                  "base",
+              }
+            );
+
+          return sortDirection ===
+            "asc"
+            ? result
+            : -result;
+        }
+      );
+    }, [
+      players,
+      positions,
+      sortDirection,
+      sortKey,
+    ]);
 
   /*
-   * Cabecera reutilizable para columnas
+   * Cabecera reutilizable
+   * para todas las columnas
    * ordenables.
    */
   function SortHeader({
@@ -281,6 +333,7 @@ export default function PlayersTable({
         onClick={() =>
           handleSort(field)
         }
+        title={`Ordenar por ${label}`}
         className={`
           cursor-pointer
           select-none
@@ -289,6 +342,7 @@ export default function PlayersTable({
           py-3
           transition
           hover:bg-slate-700
+
           ${
             align === "left"
               ? "text-left"
@@ -301,6 +355,7 @@ export default function PlayersTable({
             flex
             items-center
             gap-2
+
             ${
               align === "center"
                 ? "justify-center"
@@ -313,8 +368,14 @@ export default function PlayersTable({
           </span>
 
           {active && (
-            <span className="text-xs text-blue-400">
-              {sortDirection === "asc"
+            <span
+              className="
+                text-xs
+                text-blue-400
+              "
+            >
+              {sortDirection ===
+              "asc"
                 ? "▲"
                 : "▼"}
             </span>
@@ -333,8 +394,19 @@ export default function PlayersTable({
         border-slate-800
       "
     >
-      <table className="w-full min-w-max text-sm">
-        <thead className="bg-slate-800 text-slate-200">
+      <table
+        className="
+          w-full
+          min-w-max
+          text-sm
+        "
+      >
+        <thead
+          className="
+            bg-slate-800
+            text-slate-200
+          "
+        >
           <tr>
             <SortHeader
               label="Pos"
@@ -343,13 +415,13 @@ export default function PlayersTable({
             />
 
             <SortHeader
-              label="Name"
+              label="Nombre"
               field="name"
               align="left"
             />
 
             <SortHeader
-              label="Age"
+              label="Edad"
               field="age"
             />
 
@@ -484,10 +556,12 @@ export default function PlayersTable({
           {sortedPlayers.map(
             (player, index) => {
               const position =
-                resolvePosition(player);
+                resolvePosition(
+                  player
+                );
 
-              const flag =
-                getNationalityFlag(
+              const flagUrl =
+                getFlagUrl(
                   player.nat
                 );
 
@@ -502,6 +576,7 @@ export default function PlayersTable({
                   "
                 >
                   {/* POSICIÓN */}
+
                   <td className="p-2">
                     <div
                       className={`
@@ -512,7 +587,12 @@ export default function PlayersTable({
                         text-center
                         text-xs
                         font-black
-                        ${positionColors[position]}
+
+                        ${
+                          positionColors[
+                            position
+                          ]
+                        }
                       `}
                     >
                       {position}
@@ -520,6 +600,7 @@ export default function PlayersTable({
                   </td>
 
                   {/* NOMBRE */}
+
                   <td
                     className="
                       whitespace-nowrap
@@ -532,44 +613,72 @@ export default function PlayersTable({
                   </td>
 
                   {/* EDAD */}
-                  <td className="p-3 text-center">
+
+                  <td
+                    className="
+                      p-3
+                      text-center
+                    "
+                  >
                     {player.age}
                   </td>
 
                   {/* NACIONALIDAD */}
-                  <td className="p-3">
+
+                  <td
+                    className="
+                      p-3
+                      text-center
+                    "
+                    title={
+                      player.nat.toUpperCase()
+                    }
+                  >
                     <div
                       className="
                         flex
+                        min-w-8
                         items-center
                         justify-center
-                        gap-2
-                        whitespace-nowrap
                       "
                     >
-                      <span
-                        className="
-                          text-lg
-                          leading-none
-                        "
-                      >
-                        {flag}
-                      </span>
-
-                      <span
-                        className="
-                          text-xs
-                          font-semibold
-                          uppercase
-                          text-slate-300
-                        "
-                      >
-                        {player.nat}
-                      </span>
+                      {flagUrl ? (
+                        <img
+                          src={
+                            flagUrl
+                          }
+                          alt={
+                            player.nat
+                          }
+                          width={24}
+                          height={18}
+                          loading="lazy"
+                          className="
+                            h-[18px]
+                            w-6
+                            rounded-sm
+                            object-cover
+                          "
+                        />
+                      ) : (
+                        <span
+                          className="
+                            text-xs
+                            font-bold
+                            uppercase
+                            text-slate-500
+                          "
+                        >
+                          {
+                            player.nat
+                          }
+                        </span>
+                      )}
                     </div>
                   </td>
 
                   {/* MEDIAS */}
+
                   <td className="p-3 text-center">
                     {player.st}
                   </td>
@@ -587,11 +696,13 @@ export default function PlayersTable({
                   </td>
 
                   {/* AGRESIVIDAD */}
+
                   <td className="p-3 text-center">
                     {player.ag}
                   </td>
 
                   {/* EXPERIENCIA */}
+
                   <td className="p-3 text-center">
                     {player.kab}
                   </td>
@@ -609,6 +720,7 @@ export default function PlayersTable({
                   </td>
 
                   {/* PARTIDOS */}
+
                   <td className="p-3 text-center">
                     {player.gam}
                   </td>
@@ -626,6 +738,7 @@ export default function PlayersTable({
                   </td>
 
                   {/* PORTEROS */}
+
                   <td className="p-3 text-center">
                     {player.sav}
                   </td>
@@ -635,6 +748,7 @@ export default function PlayersTable({
                   </td>
 
                   {/* ESTADÍSTICAS */}
+
                   <td className="p-3 text-center">
                     {player.ktk}
                   </td>
@@ -656,6 +770,7 @@ export default function PlayersTable({
                   </td>
 
                   {/* DISCIPLINA */}
+
                   <td className="p-3 text-center">
                     {player.dp}
                   </td>
