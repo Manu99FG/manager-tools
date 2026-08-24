@@ -30,6 +30,7 @@ const VALID_TEAM_CODES = new Set([
   "PSG",
   "PSV",
   "RIV",
+  "RMA",
 ]);
 
 export type PlantillaFile = {

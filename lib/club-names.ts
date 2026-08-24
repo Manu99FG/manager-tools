@@ -25,6 +25,7 @@ export const CLUB_NAMES: Record<string, string> = {
   PSG: "Paris Saint-Germain",
   PSV: "PSV Eindhoven",
   RIV: "River Plate",
+  RMA: "Real Madrid",
 };
 
 export function getClubName(code: string): string {
