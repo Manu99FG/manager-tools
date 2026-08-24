@@ -4,7 +4,7 @@ import Link from "next/link";
 type ClubCardProps = {
   code: string;
   name: string;
-  logo: string | null;
+  logo: string;
   modified: string;
 };
 
@@ -34,29 +34,20 @@ export default function ClubCard({
         <div
           className="
             relative
-            flex
             h-20
             w-20
             shrink-0
-            items-center
-            justify-center
             rounded-xl
             bg-slate-900
           "
         >
-          {logo ? (
-            <Image
-              src={logo}
-              alt={`Escudo de ${name}`}
-              fill
-              sizes="80px"
-              className="object-contain p-2"
-            />
-          ) : (
-            <span className="text-xl font-black text-slate-500">
-              {code}
-            </span>
-          )}
+          <Image
+            src={logo}
+            alt={`Escudo de ${name}`}
+            fill
+            sizes="80px"
+            className="object-contain p-2"
+          />
         </div>
 
         <div className="min-w-0">

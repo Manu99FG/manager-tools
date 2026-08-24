@@ -1,46 +1,34 @@
 export const CLUB_NAMES: Record<string, string> = {
-  // España
-  RMA: "Real Madrid CF",
-  BAR: "FC Barcelona",
+  AJA: "Ajax",
+  ARS: "Arsenal",
   ATM: "Atlético de Madrid",
-  BET: "Real Betis",
-  CEL: "RC Celta de Vigo",
-  SEV: "Sevilla FC",
-  VAL: "Valencia CF",
-  VIL: "Villarreal CF",
-  ATH: "Athletic Club",
-  RSO: "Real Sociedad",
-
-  // Inglaterra
-  ARS: "Arsenal FC",
-  CHE: "Chelsea FC",
-  LIV: "Liverpool FC",
-  MCI: "Manchester City FC",
-  MUN: "Manchester United FC",
-  TOT: "Tottenham Hotspur FC",
-  NEW: "Newcastle United FC",
-
-  // Alemania
-  BMU: "FC Bayern Munich",
   BDO: "Borussia Dortmund",
-  BLE: "RB Leipzig",
-  LEV: "Bayer 04 Leverkusen",
-
-  // Italia
-  INT: "Inter Milan",
-  JUV: "Juventus FC",
-  MIL: "AC Milan",
-  NAP: "SSC Napoli",
-  ROM: "AS Roma",
-  LAZ: "SS Lazio",
-
-  // Francia
-  PSG: "Paris Saint-Germain FC",
-  MON: "AS Monaco FC",
-  LYO: "Olympique Lyonnais",
+  BLE: "Bayer 04 Leverkusen",
+  BMU: "Bayern Munich",
+  BOC: "Boca Juniors",
+  CEL: "Celta de Vigo",
+  CHE: "Chelsea",
+  DEP: "Deportivo La Coruña",
+  FCB: "FC Barcelona",
+  FLA: "Flamengo",
+  IND: "Club Atlético Independiente",
+  INT: "Inter de Milán",
+  JUV: "Juventus de Turín",
+  LIV: "Liverpool",
   MAR: "Olympique de Marseille",
+  MCI: "Manchester City",
+  MIL: "AC Milan",
+  MUN: "Manchester United",
+  NAP: "SSC Napoli",
+  OPO: "FC Porto",
+  PAR: "Parma FC",
+  PSG: "Paris Saint-Germain",
+  PSV: "PSV Eindhoven",
+  RIV: "River Plate",
 };
 
-export function getClubName(code: string) {
-  return CLUB_NAMES[code.toUpperCase()] ?? code.toUpperCase();
+export function getClubName(code: string): string {
+  const normalizedCode = code.toUpperCase();
+
+  return CLUB_NAMES[normalizedCode] ?? normalizedCode;
 }

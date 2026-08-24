@@ -3,21 +3,29 @@ import { getClubLogo } from "@/lib/club-logo";
 import { getClubName } from "@/lib/club-names";
 import { getPlantillasFiles } from "@/lib/plantillas";
 
+/*
+ * La lista de plantillas se consulta directamente
+ * desde Dropbox en cada petición.
+ *
+ * No queremos que Vercel conserve una versión
+ * semanal de esta página.
+ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function PlantillasPage() {
   const teams = await getPlantillasFiles();
 
-  const teamsWithLogos = await Promise.all(
-    teams.map(async (team) => {
-      const code = team.name.toUpperCase();
+  const teamsWithLogos = teams.map((team) => {
+    const code = team.name.toUpperCase();
 
-      return {
-        ...team,
-        code,
-        clubName: getClubName(code),
-        logo: await getClubLogo(code),
-      };
-    })
-  );
+    return {
+      ...team,
+      code,
+      clubName: getClubName(code),
+      logo: getClubLogo(code),
+    };
+  });
 
   return (
     <div>
@@ -27,8 +35,11 @@ export default async function PlantillasPage() {
         </h1>
 
         <p className="mt-2 text-slate-400">
-          Plantillas oficiales sincronizadas con
-          Dropbox.
+          Plantillas oficiales sincronizadas con Dropbox.
+        </p>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {teams.length} equipos
         </p>
       </div>
 

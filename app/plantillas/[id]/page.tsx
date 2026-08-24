@@ -1,39 +1,37 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import PlayersTable from "@/components/PlayersTable";
+import { getClubLogo } from "@/lib/club-logo";
 import { getClubName } from "@/lib/club-names";
 import { getDropboxClient } from "@/lib/dropbox";
 import { parseEsmsPlantilla } from "@/lib/parser-esms";
+
+/*
+ * Las plantillas individuales deben obtener siempre
+ * la versión actual del archivo de Dropbox.
+ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function TeamPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // Obtenemos el código del equipo desde la URL
   const { id } = await params;
 
   const team = decodeURIComponent(id).toUpperCase();
 
-  // Conectamos con Dropbox
   const dbx = getDropboxClient();
 
-  // Ruta oficial de las plantillas ESMS
   const path =
     `/ESO - Evolution Soccer Online/Plantillas/${team}.txt`;
 
-  // Descargamos la plantilla
   const download = await dbx.filesDownload({
     path,
   });
 
-  /*
-   * Dropbox debería devolver fileBlob cuando
-   * descargamos un archivo.
-   *
-   * TypeScript considera que puede ser undefined,
-   * así que lo comprobamos antes de utilizarlo.
-   */
   const fileBlob = download.result.fileBlob;
 
   if (!fileBlob) {
@@ -42,15 +40,15 @@ export default async function TeamPage({
     );
   }
 
-  // Convertimos el archivo descargado a texto
   const text = await fileBlob.text();
 
-  // Interpretamos el formato ESMS
   const players = parseEsmsPlantilla(text);
+
+  const clubName = getClubName(team);
+  const clubLogo = getClubLogo(team);
 
   return (
     <div>
-      {/* VOLVER */}
       <Link
         href="/plantillas"
         className="
@@ -69,34 +67,67 @@ export default async function TeamPage({
         ← Volver a Plantillas
       </Link>
 
-      {/* CABECERA */}
-      <div className="mt-8">
-        <p
+      <div className="mt-8 flex items-center gap-6">
+        <div
           className="
-            text-xs
-            font-bold
-            uppercase
-            tracking-widest
-            text-blue-400
+            relative
+            h-24
+            w-24
+            shrink-0
+            rounded-2xl
+            bg-slate-950
+            p-3
           "
         >
-          Plantilla oficial ESMS
-        </p>
+          <Image
+            src={clubLogo}
+            alt={`Escudo de ${clubName}`}
+            fill
+            sizes="96px"
+            className="object-contain p-3"
+            priority
+          />
+        </div>
 
-        <h1 className="mt-2 text-4xl font-bold text-white">
-          {getClubName(team)}
-        </h1>
+        <div>
+          <p
+            className="
+              text-xs
+              font-bold
+              uppercase
+              tracking-widest
+              text-blue-400
+            "
+          >
+            Plantilla oficial ESMS
+          </p>
 
-        <p className="mt-1 text-slate-500">
-          {team}
-        </p>
+          <h1 className="mt-2 text-4xl font-bold text-white">
+            {clubName}
+          </h1>
 
-        <p className="mt-3 text-slate-400">
-          {players.length} jugadores
-        </p>
+          <div className="mt-2 flex items-center gap-3">
+            <span
+              className="
+                rounded-md
+                bg-slate-800
+                px-2
+                py-1
+                text-xs
+                font-bold
+                text-slate-300
+              "
+            >
+              {team}
+            </span>
+
+            <span className="text-sm text-slate-400">
+              {players.length} jugadores
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* TABLA DE JUGADORES */}
       <div className="mt-8">
         <PlayersTable
           players={players}
