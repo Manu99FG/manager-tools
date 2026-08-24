@@ -10,29 +10,47 @@ export default async function TeamPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // Obtenemos el código del equipo desde la URL
   const { id } = await params;
 
-  const team =
-    decodeURIComponent(id).toUpperCase();
+  const team = decodeURIComponent(id).toUpperCase();
 
+  // Conectamos con Dropbox
   const dbx = getDropboxClient();
 
+  // Ruta oficial de las plantillas ESMS
   const path =
     `/ESO - Evolution Soccer Online/Plantillas/${team}.txt`;
 
-  const download =
-    await dbx.filesDownload({
-      path,
-    });
+  // Descargamos la plantilla
+  const download = await dbx.filesDownload({
+    path,
+  });
 
-  const text =
-    await download.result.fileBlob.text();
+  /*
+   * Dropbox debería devolver fileBlob cuando
+   * descargamos un archivo.
+   *
+   * TypeScript considera que puede ser undefined,
+   * así que lo comprobamos antes de utilizarlo.
+   */
+  const fileBlob = download.result.fileBlob;
 
-  const players =
-    parseEsmsPlantilla(text);
+  if (!fileBlob) {
+    throw new Error(
+      `No se pudo descargar la plantilla ${team} desde Dropbox`
+    );
+  }
+
+  // Convertimos el archivo descargado a texto
+  const text = await fileBlob.text();
+
+  // Interpretamos el formato ESMS
+  const players = parseEsmsPlantilla(text);
 
   return (
     <div>
+      {/* VOLVER */}
       <Link
         href="/plantillas"
         className="
@@ -44,12 +62,14 @@ export default async function TeamPage({
           text-sm
           font-semibold
           text-white
+          transition
           hover:bg-slate-700
         "
       >
         ← Volver a Plantillas
       </Link>
 
+      {/* CABECERA */}
       <div className="mt-8">
         <p
           className="
@@ -63,7 +83,7 @@ export default async function TeamPage({
           Plantilla oficial ESMS
         </p>
 
-        <h1 className="mt-2 text-4xl font-bold">
+        <h1 className="mt-2 text-4xl font-bold text-white">
           {getClubName(team)}
         </h1>
 
@@ -76,6 +96,7 @@ export default async function TeamPage({
         </p>
       </div>
 
+      {/* TABLA DE JUGADORES */}
       <div className="mt-8">
         <PlayersTable
           players={players}

@@ -10,13 +10,20 @@ export type PlantillaFile = {
   modified: string;
 };
 
-export async function getPlantillasFiles(): Promise<PlantillaFile[]> {
+export async function getPlantillasFiles(): Promise<
+  PlantillaFile[]
+> {
+  // Conectamos con Dropbox
   const dbx = getDropboxClient();
 
+  // Obtenemos todos los archivos de la carpeta
   const response = await dbx.filesListFolder({
     path: PLANTILLAS_PATH,
   });
 
+  /*
+   * Nos quedamos únicamente con archivos .txt
+   */
   const txtFiles = response.result.entries.filter(
     (entry) =>
       entry[".tag"] === "file" &&
@@ -25,6 +32,12 @@ export async function getPlantillasFiles(): Promise<PlantillaFile[]> {
 
   const plantillas: PlantillaFile[] = [];
 
+  /*
+   * Revisamos los archivos uno por uno.
+   *
+   * No todos los .txt de la carpeta tienen
+   * necesariamente que ser plantillas ESMS.
+   */
   for (const entry of txtFiles) {
     if (entry[".tag"] !== "file") {
       continue;
@@ -34,14 +47,43 @@ export async function getPlantillasFiles(): Promise<PlantillaFile[]> {
       continue;
     }
 
+    /*
+     * ALL.txt contiene todos los jugadores,
+     * pero no representa a un club individual.
+     */
+    if (entry.name.toUpperCase() === "ALL.TXT") {
+      continue;
+    }
+
     try {
+      // Descargamos el archivo
       const download = await dbx.filesDownload({
         path: entry.path_lower,
       });
 
-      const text =
-        await download.result.fileBlob.text();
+      /*
+       * TypeScript considera fileBlob opcional.
+       *
+       * Comprobamos explícitamente que exista
+       * antes de llamar a .text().
+       */
+      const fileBlob = download.result.fileBlob;
 
+      if (!fileBlob) {
+        console.warn(
+          `No se pudo descargar ${entry.name}`
+        );
+
+        continue;
+      }
+
+      // Convertimos el archivo a texto
+      const text = await fileBlob.text();
+
+      /*
+       * Comprobamos la cabecera para asegurarnos
+       * de que realmente sea una plantilla ESMS.
+       */
       const firstLine =
         text.split(/\r?\n/)[0]?.trim() ?? "";
 
@@ -61,13 +103,8 @@ export async function getPlantillasFiles(): Promise<PlantillaFile[]> {
       }
 
       /*
-       * ALL.txt contiene todos los jugadores,
-       * pero no representa un club.
+       * Guardamos la plantilla válida.
        */
-      if (entry.name.toUpperCase() === "ALL.TXT") {
-        continue;
-      }
-
       plantillas.push({
         name: entry.name.replace(/\.txt$/i, ""),
         filename: entry.name,
@@ -76,12 +113,15 @@ export async function getPlantillasFiles(): Promise<PlantillaFile[]> {
       });
     } catch (error) {
       console.error(
-        `Error leyendo ${entry.name}`,
+        `Error leyendo ${entry.name}:`,
         error
       );
     }
   }
 
+  /*
+   * Ordenamos los equipos alfabéticamente.
+   */
   return plantillas.sort((a, b) =>
     a.name.localeCompare(b.name)
   );
