@@ -15,13 +15,20 @@ import {
   type EsmsPosition,
 } from "@/lib/esms-player";
 
+import {
+  getNationalityFlag,
+} from "@/lib/nationalities";
+
 type PlayerSortKey =
   | keyof EsmsPlayer
   | "position";
 
 type SortDirection = "asc" | "desc";
 
-const positionOrder: Record<EsmsPosition, number> = {
+const positionOrder: Record<
+  EsmsPosition,
+  number
+> = {
   GK: 1,
   DF: 2,
   DM: 3,
@@ -55,14 +62,31 @@ export default function PlayersTable({
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("asc");
 
-  const [positions, setPositions] = useState<
-    Record<string, EsmsPosition>
-  >({});
+  const [positions, setPositions] =
+    useState<Record<string, EsmsPosition>>(
+      {}
+    );
 
-  function getPlayerKey(player: EsmsPlayer) {
+  /*
+   * Clave única por equipo + jugador.
+   *
+   * Así dos jugadores con el mismo nombre
+   * pero en equipos distintos no comparten
+   * posición almacenada.
+   */
+  function getPlayerKey(
+    player: EsmsPlayer
+  ): string {
     return `${team}:${player.name}`;
   }
 
+  /*
+   * Carga y conserva la última posición
+   * conocida del jugador.
+   *
+   * Esto sirve para resolver empates
+   * de medias principales.
+   */
   useEffect(() => {
     const resolved: Record<
       string,
@@ -70,35 +94,53 @@ export default function PlayersTable({
     > = {};
 
     for (const player of players) {
-      const playerKey = getPlayerKey(player);
+      const playerKey =
+        getPlayerKey(player);
 
       const storageKey =
         `manager-tools-position:${playerKey}`;
 
-      const previous =
+      const previousPosition =
         localStorage.getItem(storageKey) as
           | EsmsPosition
           | null;
 
+      /*
+       * Si no existe empate:
+       * recalculamos normalmente la posición
+       * y la guardamos.
+       */
       if (!hasMainRatingTie(player)) {
-        const current =
+        const currentPosition =
           getPlayerProfile(player);
 
-        resolved[playerKey] = current;
+        resolved[playerKey] =
+          currentPosition;
 
         localStorage.setItem(
           storageKey,
-          current
+          currentPosition
         );
 
         continue;
       }
 
-      if (previous) {
-        resolved[playerKey] = previous;
+      /*
+       * Si existe empate y ya conocíamos
+       * la posición anterior, la conservamos.
+       */
+      if (previousPosition) {
+        resolved[playerKey] =
+          previousPosition;
+
         continue;
       }
 
+      /*
+       * Si Manager Tools ve al jugador
+       * por primera vez estando ya empatado,
+       * utilizamos la regla de respaldo.
+       */
       resolved[playerKey] =
         getTieFallbackPosition(player);
     }
@@ -106,23 +148,40 @@ export default function PlayersTable({
     setPositions(resolved);
   }, [players, team]);
 
+  /*
+   * Devuelve la posición definitiva
+   * que mostraremos en la tabla.
+   */
   function resolvePosition(
     player: EsmsPlayer
   ): EsmsPosition {
-    const key = getPlayerKey(player);
+    const playerKey =
+      getPlayerKey(player);
 
     return (
-      positions[key] ??
+      positions[playerKey] ??
       getPlayerProfile(player)
     );
   }
 
-  function handleSort(key: PlayerSortKey) {
+  /*
+   * Ordenación.
+   *
+   * Primer clic:
+   * ascendente.
+   *
+   * Segundo clic:
+   * descendente.
+   */
+  function handleSort(
+    key: PlayerSortKey
+  ) {
     if (sortKey === key) {
-      setSortDirection((direction) =>
-        direction === "asc"
-          ? "desc"
-          : "asc"
+      setSortDirection(
+        (currentDirection) =>
+          currentDirection === "asc"
+            ? "desc"
+            : "asc"
       );
 
       return;
@@ -132,22 +191,30 @@ export default function PlayersTable({
     setSortDirection("asc");
   }
 
+  /*
+   * Si no se ha pulsado ninguna columna,
+   * conservamos exactamente el orden
+   * del archivo ESMS.
+   */
   const sortedPlayers = useMemo(() => {
     if (!sortKey) {
       return players;
     }
 
     return [...players].sort((a, b) => {
+      /*
+       * Ordenación especial por posición.
+       */
       if (sortKey === "position") {
-        const aPosition =
+        const positionA =
           resolvePosition(a);
 
-        const bPosition =
+        const positionB =
           resolvePosition(b);
 
         const result =
-          positionOrder[aPosition] -
-          positionOrder[bPosition];
+          positionOrder[positionA] -
+          positionOrder[positionB];
 
         return sortDirection === "asc"
           ? result
@@ -157,6 +224,9 @@ export default function PlayersTable({
       const aValue = a[sortKey];
       const bValue = b[sortKey];
 
+      /*
+       * Columnas numéricas.
+       */
       if (
         typeof aValue === "number" &&
         typeof bValue === "number"
@@ -166,6 +236,10 @@ export default function PlayersTable({
           : bValue - aValue;
       }
 
+      /*
+       * Texto:
+       * Name, Nat, etc.
+       */
       const result =
         String(aValue).localeCompare(
           String(bValue),
@@ -186,37 +260,66 @@ export default function PlayersTable({
     sortKey,
   ]);
 
+  /*
+   * Cabecera reutilizable para columnas
+   * ordenables.
+   */
   function SortHeader({
     label,
     field,
+    align = "center",
   }: {
     label: string;
     field: PlayerSortKey;
+    align?: "left" | "center";
   }) {
-    const active = sortKey === field;
+    const active =
+      sortKey === field;
 
     return (
       <th
-        onClick={() => handleSort(field)}
-        className="
+        onClick={() =>
+          handleSort(field)
+        }
+        className={`
           cursor-pointer
           select-none
           whitespace-nowrap
           px-3
           py-3
-          text-center
+          transition
           hover:bg-slate-700
-        "
+          ${
+            align === "left"
+              ? "text-left"
+              : "text-center"
+          }
+        `}
       >
-        {label}
-
-        {active && (
-          <span className="ml-2 text-xs text-blue-400">
-            {sortDirection === "asc"
-              ? "▲"
-              : "▼"}
+        <div
+          className={`
+            flex
+            items-center
+            gap-2
+            ${
+              align === "center"
+                ? "justify-center"
+                : ""
+            }
+          `}
+        >
+          <span>
+            {label}
           </span>
-        )}
+
+          {active && (
+            <span className="text-xs text-blue-400">
+              {sortDirection === "asc"
+                ? "▲"
+                : "▼"}
+            </span>
+          )}
+        </div>
       </th>
     );
   }
@@ -230,17 +333,19 @@ export default function PlayersTable({
         border-slate-800
       "
     >
-      <table className="min-w-max text-sm">
+      <table className="w-full min-w-max text-sm">
         <thead className="bg-slate-800 text-slate-200">
           <tr>
             <SortHeader
               label="Pos"
               field="position"
+              align="left"
             />
 
             <SortHeader
               label="Name"
               field="name"
+              align="left"
             />
 
             <SortHeader
@@ -253,37 +358,125 @@ export default function PlayersTable({
               field="nat"
             />
 
-            <SortHeader label="St" field="st" />
-            <SortHeader label="Tk" field="tk" />
-            <SortHeader label="Ps" field="ps" />
-            <SortHeader label="Sh" field="sh" />
+            <SortHeader
+              label="St"
+              field="st"
+            />
 
-            <SortHeader label="Ag" field="ag" />
+            <SortHeader
+              label="Tk"
+              field="tk"
+            />
 
-            <SortHeader label="KAb" field="kab" />
-            <SortHeader label="TAb" field="tab" />
-            <SortHeader label="PAb" field="pab" />
-            <SortHeader label="SAb" field="sab" />
+            <SortHeader
+              label="Ps"
+              field="ps"
+            />
 
-            <SortHeader label="Gam" field="gam" />
-            <SortHeader label="Sub" field="sub" />
-            <SortHeader label="Min" field="min" />
-            <SortHeader label="Mom" field="mom" />
+            <SortHeader
+              label="Sh"
+              field="sh"
+            />
 
-            <SortHeader label="Sav" field="sav" />
-            <SortHeader label="Con" field="con" />
+            <SortHeader
+              label="Ag"
+              field="ag"
+            />
 
-            <SortHeader label="Ktk" field="ktk" />
-            <SortHeader label="Kps" field="kps" />
-            <SortHeader label="Sht" field="sht" />
+            <SortHeader
+              label="KAb"
+              field="kab"
+            />
 
-            <SortHeader label="Gls" field="gls" />
-            <SortHeader label="Ass" field="ass" />
+            <SortHeader
+              label="TAb"
+              field="tab"
+            />
 
-            <SortHeader label="DP" field="dp" />
-            <SortHeader label="Inj" field="inj" />
-            <SortHeader label="Sus" field="sus" />
-            <SortHeader label="Fit" field="fit" />
+            <SortHeader
+              label="PAb"
+              field="pab"
+            />
+
+            <SortHeader
+              label="SAb"
+              field="sab"
+            />
+
+            <SortHeader
+              label="Gam"
+              field="gam"
+            />
+
+            <SortHeader
+              label="Sub"
+              field="sub"
+            />
+
+            <SortHeader
+              label="Min"
+              field="min"
+            />
+
+            <SortHeader
+              label="Mom"
+              field="mom"
+            />
+
+            <SortHeader
+              label="Sav"
+              field="sav"
+            />
+
+            <SortHeader
+              label="Con"
+              field="con"
+            />
+
+            <SortHeader
+              label="Ktk"
+              field="ktk"
+            />
+
+            <SortHeader
+              label="Kps"
+              field="kps"
+            />
+
+            <SortHeader
+              label="Sht"
+              field="sht"
+            />
+
+            <SortHeader
+              label="Gls"
+              field="gls"
+            />
+
+            <SortHeader
+              label="Ass"
+              field="ass"
+            />
+
+            <SortHeader
+              label="DP"
+              field="dp"
+            />
+
+            <SortHeader
+              label="Inj"
+              field="inj"
+            />
+
+            <SortHeader
+              label="Sus"
+              field="sus"
+            />
+
+            <SortHeader
+              label="Fit"
+              field="fit"
+            />
           </tr>
         </thead>
 
@@ -293,18 +486,26 @@ export default function PlayersTable({
               const position =
                 resolvePosition(player);
 
+              const flag =
+                getNationalityFlag(
+                  player.nat
+                );
+
               return (
                 <tr
                   key={`${player.name}-${index}`}
                   className="
                     border-t
                     border-slate-800
+                    transition
                     hover:bg-slate-900
                   "
                 >
+                  {/* POSICIÓN */}
                   <td className="p-2">
                     <div
                       className={`
+                        min-w-12
                         rounded-md
                         px-3
                         py-1
@@ -318,53 +519,158 @@ export default function PlayersTable({
                     </div>
                   </td>
 
-                  <td className="whitespace-nowrap p-3 font-medium text-white">
+                  {/* NOMBRE */}
+                  <td
+                    className="
+                      whitespace-nowrap
+                      p-3
+                      font-medium
+                      text-white
+                    "
+                  >
                     {player.name}
                   </td>
 
-                  {[
-                    player.age,
-                    player.nat.toUpperCase(),
+                  {/* EDAD */}
+                  <td className="p-3 text-center">
+                    {player.age}
+                  </td>
 
-                    player.st,
-                    player.tk,
-                    player.ps,
-                    player.sh,
-
-                    player.ag,
-
-                    player.kab,
-                    player.tab,
-                    player.pab,
-                    player.sab,
-
-                    player.gam,
-                    player.sub,
-                    player.min,
-                    player.mom,
-
-                    player.sav,
-                    player.con,
-
-                    player.ktk,
-                    player.kps,
-                    player.sht,
-
-                    player.gls,
-                    player.ass,
-
-                    player.dp,
-                    player.inj,
-                    player.sus,
-                    player.fit,
-                  ].map((value, valueIndex) => (
-                    <td
-                      key={valueIndex}
-                      className="p-3 text-center"
+                  {/* NACIONALIDAD */}
+                  <td className="p-3">
+                    <div
+                      className="
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        whitespace-nowrap
+                      "
                     >
-                      {value}
-                    </td>
-                  ))}
+                      <span
+                        className="
+                          text-lg
+                          leading-none
+                        "
+                      >
+                        {flag}
+                      </span>
+
+                      <span
+                        className="
+                          text-xs
+                          font-semibold
+                          uppercase
+                          text-slate-300
+                        "
+                      >
+                        {player.nat}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* MEDIAS */}
+                  <td className="p-3 text-center">
+                    {player.st}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.tk}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.ps}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.sh}
+                  </td>
+
+                  {/* AGRESIVIDAD */}
+                  <td className="p-3 text-center">
+                    {player.ag}
+                  </td>
+
+                  {/* EXPERIENCIA */}
+                  <td className="p-3 text-center">
+                    {player.kab}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.tab}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.pab}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.sab}
+                  </td>
+
+                  {/* PARTIDOS */}
+                  <td className="p-3 text-center">
+                    {player.gam}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.sub}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.min}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.mom}
+                  </td>
+
+                  {/* PORTEROS */}
+                  <td className="p-3 text-center">
+                    {player.sav}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.con}
+                  </td>
+
+                  {/* ESTADÍSTICAS */}
+                  <td className="p-3 text-center">
+                    {player.ktk}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.kps}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.sht}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.gls}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.ass}
+                  </td>
+
+                  {/* DISCIPLINA */}
+                  <td className="p-3 text-center">
+                    {player.dp}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.inj}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.sus}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {player.fit}
+                  </td>
                 </tr>
               );
             }
