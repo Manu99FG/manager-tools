@@ -18,15 +18,24 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <div className="flex min-h-screen bg-slate-900">
+        <div className="min-h-screen bg-slate-900">
           <Sidebar />
 
           <main
             className="
               min-w-0
-              flex-1
-              p-8
+              px-3
+              pb-6
+              pt-20
               text-white
+
+              sm:px-4
+
+              md:px-6
+
+              lg:ml-64
+              lg:px-8
+              lg:py-8
             "
           >
             {children}

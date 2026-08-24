@@ -6,7 +6,9 @@ import {
   useState,
 } from "react";
 
-import type { GlobalEsmsPlayer } from "@/lib/all-players";
+import type {
+  GlobalEsmsPlayer,
+} from "@/lib/all-players";
 
 import {
   getPlayerProfile,
@@ -19,9 +21,9 @@ import {
   getFlagUrl,
 } from "@/lib/nationalities";
 
-/* =========================================================
+/* ===========================================
    TIPOS
-========================================================= */
+=========================================== */
 
 type SortKey =
   | "name"
@@ -62,9 +64,9 @@ type AdvancedFilter = {
   value: string;
 };
 
-/* =========================================================
+/* ===========================================
    POSICIONES
-========================================================= */
+=========================================== */
 
 const POSITION_ORDER: Record<
   EsmsPosition,
@@ -90,9 +92,9 @@ const POSITION_COLORS: Record<
   FW: "bg-red-500 text-white",
 };
 
-/* =========================================================
-   OPCIONES FILTROS AVANZADOS
-========================================================= */
+/* ===========================================
+   FILTROS
+=========================================== */
 
 const ADVANCED_FILTER_OPTIONS: {
   value: AdvancedFilterType;
@@ -140,21 +142,19 @@ const ADVANCED_FILTER_OPTIONS: {
   },
 ];
 
-/* =========================================================
+/* ===========================================
    COMPONENTE
-========================================================= */
+=========================================== */
 
 export default function PlayerSearch({
   players,
 }: {
   players: GlobalEsmsPlayer[];
 }) {
-  /* =======================================================
-     FILTROS PRINCIPALES
-  ======================================================= */
-
-  const [search, setSearch] =
-    useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
   const [
     teamFilter,
@@ -166,42 +166,47 @@ export default function PlayerSearch({
     setPositionFilter,
   ] = useState("ALL");
 
-  /* =======================================================
-     FILTROS AVANZADOS
-  ======================================================= */
-
   const [
     advancedFilters,
     setAdvancedFilters,
-  ] = useState<AdvancedFilter[]>([]);
+  ] = useState<
+    AdvancedFilter[]
+  >([]);
 
   const [
     nextFilterId,
     setNextFilterId,
   ] = useState(1);
 
-  /* =======================================================
-     ORDENACIÓN
-  ======================================================= */
-
-  const [sortKey, setSortKey] =
-    useState<SortKey | null>(null);
+  const [
+    sortKey,
+    setSortKey,
+  ] =
+    useState<SortKey | null>(
+      null
+    );
 
   const [
     sortDirection,
     setSortDirection,
-  ] = useState<SortDirection>("asc");
-
-  /* =======================================================
-     POSICIONES GUARDADAS
-  ======================================================= */
+  ] =
+    useState<SortDirection>(
+      "asc"
+    );
 
   const [
     positions,
     setPositions,
   ] = useState<
-    Record<string, EsmsPosition>
+    Record<
+      string,
+      EsmsPosition
+    >
   >({});
+
+  /* ===========================================
+     POSICIONES
+  =========================================== */
 
   function getPlayerKey(
     player: GlobalEsmsPlayer
@@ -215,38 +220,46 @@ export default function PlayerSearch({
       EsmsPosition
     > = {};
 
-    for (const player of players) {
+    for (
+      const player of players
+    ) {
       const playerKey =
         getPlayerKey(player);
 
       const storageKey =
         `manager-tools-position:${playerKey}`;
 
-      const previousPosition =
+      const previous =
         localStorage.getItem(
           storageKey
-        ) as EsmsPosition | null;
+        ) as
+          | EsmsPosition
+          | null;
 
       if (
-        !hasMainRatingTie(player)
+        !hasMainRatingTie(
+          player
+        )
       ) {
-        const currentPosition =
-          getPlayerProfile(player);
+        const current =
+          getPlayerProfile(
+            player
+          );
 
         resolved[playerKey] =
-          currentPosition;
+          current;
 
         localStorage.setItem(
           storageKey,
-          currentPosition
+          current
         );
 
         continue;
       }
 
-      if (previousPosition) {
+      if (previous) {
         resolved[playerKey] =
-          previousPosition;
+          previous;
 
         continue;
       }
@@ -271,41 +284,47 @@ export default function PlayerSearch({
     );
   }
 
-  /* =======================================================
+  /* ===========================================
      EQUIPOS
-  ======================================================= */
+  =========================================== */
 
-  const teams = useMemo(() => {
-    const map = new Map<
-      string,
-      string
-    >();
+  const teams =
+    useMemo(() => {
+      const map =
+        new Map<
+          string,
+          string
+        >();
 
-    for (const player of players) {
-      map.set(
-        player.teamCode,
-        player.teamName
-      );
-    }
+      for (
+        const player of players
+      ) {
+        map.set(
+          player.teamCode,
+          player.teamName
+        );
+      }
 
-    return Array.from(
-      map.entries()
-    )
-      .map(([code, name]) => ({
-        code,
-        name,
-      }))
-      .sort((a, b) =>
-        a.name.localeCompare(
-          b.name,
-          "es"
+      return Array.from(
+        map.entries()
+      )
+        .map(
+          ([code, name]) => ({
+            code,
+            name,
+          })
         )
-      );
-  }, [players]);
+        .sort((a, b) =>
+          a.name.localeCompare(
+            b.name,
+            "es"
+          )
+        );
+    }, [players]);
 
-  /* =======================================================
+  /* ===========================================
      NACIONALIDADES
-  ======================================================= */
+  =========================================== */
 
   const nationalities =
     useMemo(() => {
@@ -324,9 +343,9 @@ export default function PlayerSearch({
       );
     }, [players]);
 
-  /* =======================================================
-     AÑADIR FILTRO
-  ======================================================= */
+  /* ===========================================
+     FILTROS AVANZADOS
+  =========================================== */
 
   function addAdvancedFilter() {
     setAdvancedFilters(
@@ -334,14 +353,7 @@ export default function PlayerSearch({
         ...current,
         {
           id: nextFilterId,
-
-          /*
-           * El filtro nuevo empieza en Edad.
-           * El usuario puede cambiarlo
-           * inmediatamente.
-           */
           type: "age",
-
           min: "",
           max: "",
           value: "",
@@ -350,13 +362,10 @@ export default function PlayerSearch({
     );
 
     setNextFilterId(
-      (current) => current + 1
+      (current) =>
+        current + 1
     );
   }
-
-  /* =======================================================
-     BORRAR FILTRO
-  ======================================================= */
 
   function removeAdvancedFilter(
     id: number
@@ -370,33 +379,26 @@ export default function PlayerSearch({
     );
   }
 
-  /* =======================================================
-     CAMBIAR TIPO
-  ======================================================= */
-
   function changeFilterType(
     id: number,
     type: AdvancedFilterType
   ) {
     setAdvancedFilters(
       (current) =>
-        current.map((filter) =>
-          filter.id === id
-            ? {
-                ...filter,
-                type,
-                min: "",
-                max: "",
-                value: "",
-              }
-            : filter
+        current.map(
+          (filter) =>
+            filter.id === id
+              ? {
+                  ...filter,
+                  type,
+                  min: "",
+                  max: "",
+                  value: "",
+                }
+              : filter
         )
     );
   }
-
-  /* =======================================================
-     ACTUALIZAR MÍNIMO
-  ======================================================= */
 
   function changeFilterMin(
     id: number,
@@ -404,20 +406,17 @@ export default function PlayerSearch({
   ) {
     setAdvancedFilters(
       (current) =>
-        current.map((filter) =>
-          filter.id === id
-            ? {
-                ...filter,
-                min,
-              }
-            : filter
+        current.map(
+          (filter) =>
+            filter.id === id
+              ? {
+                  ...filter,
+                  min,
+                }
+              : filter
         )
     );
   }
-
-  /* =======================================================
-     ACTUALIZAR MÁXIMO
-  ======================================================= */
 
   function changeFilterMax(
     id: number,
@@ -425,21 +424,17 @@ export default function PlayerSearch({
   ) {
     setAdvancedFilters(
       (current) =>
-        current.map((filter) =>
-          filter.id === id
-            ? {
-                ...filter,
-                max,
-              }
-            : filter
+        current.map(
+          (filter) =>
+            filter.id === id
+              ? {
+                  ...filter,
+                  max,
+                }
+              : filter
         )
     );
   }
-
-  /* =======================================================
-     ACTUALIZAR VALOR
-     Se utiliza para nacionalidad.
-  ======================================================= */
 
   function changeFilterValue(
     id: number,
@@ -447,20 +442,17 @@ export default function PlayerSearch({
   ) {
     setAdvancedFilters(
       (current) =>
-        current.map((filter) =>
-          filter.id === id
-            ? {
-                ...filter,
-                value,
-              }
-            : filter
+        current.map(
+          (filter) =>
+            filter.id === id
+              ? {
+                  ...filter,
+                  value,
+                }
+              : filter
         )
     );
   }
-
-  /* =======================================================
-     COMPROBAR FILTRO NUMÉRICO
-  ======================================================= */
 
   function matchesNumericFilter(
     playerValue: number,
@@ -485,37 +477,18 @@ export default function PlayerSearch({
     return true;
   }
 
-  /* =======================================================
-     COMPROBAR FILTROS AVANZADOS
-  ======================================================= */
-
   function matchesAdvancedFilters(
     player: GlobalEsmsPlayer
   ) {
-    /*
-     * TODOS los filtros creados deben
-     * cumplirse.
-     *
-     * Es decir:
-     *
-     * Edad 18-23
-     * Y
-     * Ps 18-20
-     * Y
-     * Nacionalidad ESP
-     *
-     * etc.
-     */
     return advancedFilters.every(
       (filter) => {
-        switch (filter.type) {
+        switch (
+          filter.type
+        ) {
           case "nat":
-            /*
-             * Si todavía no hemos elegido
-             * nacionalidad, este filtro
-             * no restringe resultados.
-             */
-            if (!filter.value) {
+            if (
+              !filter.value
+            ) {
               return true;
             }
 
@@ -587,9 +560,9 @@ export default function PlayerSearch({
     );
   }
 
-  /* =======================================================
-     FILTRAR JUGADORES
-  ======================================================= */
+  /* ===========================================
+     FILTRADO
+  =========================================== */
 
   const filteredPlayers =
     useMemo(() => {
@@ -601,11 +574,10 @@ export default function PlayerSearch({
       return players.filter(
         (player) => {
           const position =
-            resolvePosition(player);
+            resolvePosition(
+              player
+            );
 
-          /*
-           * Nombre
-           */
           if (
             normalizedSearch &&
             !player.name
@@ -617,20 +589,15 @@ export default function PlayerSearch({
             return false;
           }
 
-          /*
-           * Equipo
-           */
           if (
-            teamFilter !== "ALL" &&
+            teamFilter !==
+              "ALL" &&
             player.teamCode !==
               teamFilter
           ) {
             return false;
           }
 
-          /*
-           * Posición
-           */
           if (
             positionFilter !==
               "ALL" &&
@@ -640,9 +607,6 @@ export default function PlayerSearch({
             return false;
           }
 
-          /*
-           * Filtros avanzados
-           */
           if (
             !matchesAdvancedFilters(
               player
@@ -663,9 +627,9 @@ export default function PlayerSearch({
       positions,
     ]);
 
-  /* =======================================================
+  /* ===========================================
      ORDENACIÓN
-  ======================================================= */
+  =========================================== */
 
   const sortedPlayers =
     useMemo(() => {
@@ -679,7 +643,8 @@ export default function PlayerSearch({
         let result = 0;
 
         if (
-          sortKey === "position"
+          sortKey ===
+          "position"
         ) {
           result =
             POSITION_ORDER[
@@ -730,14 +695,12 @@ export default function PlayerSearch({
       positions,
     ]);
 
-  /* =======================================================
-     ORDENAR
-  ======================================================= */
-
   function handleSort(
     key: SortKey
   ) {
-    if (sortKey === key) {
+    if (
+      sortKey === key
+    ) {
       setSortDirection(
         (current) =>
           current === "asc"
@@ -749,28 +712,18 @@ export default function PlayerSearch({
     }
 
     setSortKey(key);
-    setSortDirection("asc");
-  }
 
-  /* =======================================================
-     LIMPIAR
-  ======================================================= */
+    setSortDirection(
+      "asc"
+    );
+  }
 
   function clearFilters() {
     setSearch("");
     setTeamFilter("ALL");
     setPositionFilter("ALL");
-
-    /*
-     * Eliminamos también todas las
-     * líneas de filtros avanzados.
-     */
     setAdvancedFilters([]);
   }
-
-  /* =======================================================
-     CABECERA ORDENABLE
-  ======================================================= */
 
   function SortHeader({
     label,
@@ -779,7 +732,9 @@ export default function PlayerSearch({
   }: {
     label: string;
     field: SortKey;
-    align?: "left" | "center";
+    align?:
+      | "left"
+      | "center";
   }) {
     const active =
       sortKey === field;
@@ -825,25 +780,25 @@ export default function PlayerSearch({
     );
   }
 
-  /* =======================================================
+  /* ===========================================
      RENDER
-  ======================================================= */
+  =========================================== */
 
   return (
-    <div>
-      {/* ===================================================
-          FILTROS PRINCIPALES
-      =================================================== */}
+    <div className="w-full min-w-0">
+      {/* FILTROS PRINCIPALES */}
 
       <div
         className="
-          flex
-          flex-wrap
+          grid
+          grid-cols-1
           gap-3
+
+          sm:grid-cols-2
+
+          xl:grid-cols-[1.5fr_1.2fr_1fr_auto]
         "
       >
-        {/* BUSCAR JUGADOR */}
-
         <input
           type="text"
           value={search}
@@ -854,8 +809,7 @@ export default function PlayerSearch({
           }
           placeholder="Buscar jugador..."
           className="
-            min-w-[220px]
-            flex-1
+            min-w-0
             rounded-lg
             border
             border-slate-700
@@ -870,8 +824,6 @@ export default function PlayerSearch({
           "
         />
 
-        {/* EQUIPO */}
-
         <select
           value={teamFilter}
           onChange={(event) =>
@@ -880,7 +832,7 @@ export default function PlayerSearch({
             )
           }
           className="
-            min-w-[200px]
+            min-w-0
             rounded-lg
             border
             border-slate-700
@@ -896,17 +848,21 @@ export default function PlayerSearch({
             Todos los equipos
           </option>
 
-          {teams.map((team) => (
-            <option
-              key={team.code}
-              value={team.code}
-            >
-              {team.name}
-            </option>
-          ))}
+          {teams.map(
+            (team) => (
+              <option
+                key={
+                  team.code
+                }
+                value={
+                  team.code
+                }
+              >
+                {team.name}
+              </option>
+            )
+          )}
         </select>
-
-        {/* POSICIÓN */}
 
         <select
           value={
@@ -918,7 +874,7 @@ export default function PlayerSearch({
             )
           }
           className="
-            min-w-[170px]
+            min-w-0
             rounded-lg
             border
             border-slate-700
@@ -937,29 +893,22 @@ export default function PlayerSearch({
           <option value="GK">
             GK
           </option>
-
           <option value="DF">
             DF
           </option>
-
           <option value="DM">
             DM
           </option>
-
           <option value="MF">
             MF
           </option>
-
           <option value="AM">
             AM
           </option>
-
           <option value="FW">
             FW
           </option>
         </select>
-
-        {/* BOTÓN AÑADIR FILTRO */}
 
         <button
           type="button"
@@ -967,6 +916,7 @@ export default function PlayerSearch({
             addAdvancedFilter
           }
           className="
+            w-full
             whitespace-nowrap
             rounded-lg
             bg-emerald-500
@@ -977,15 +927,15 @@ export default function PlayerSearch({
             text-white
             transition
             hover:bg-emerald-400
+
+            xl:w-auto
           "
         >
           + Filtros Avanzados
         </button>
       </div>
 
-      {/* ===================================================
-          FILTROS AVANZADOS DINÁMICOS
-      =================================================== */}
+      {/* FILTROS AVANZADOS */}
 
       {advancedFilters.length >
         0 && (
@@ -1000,18 +950,20 @@ export default function PlayerSearch({
               <div
                 key={filter.id}
                 className="
-                  flex
-                  flex-wrap
-                  items-center
+                  grid
+                  grid-cols-1
                   gap-3
                   rounded-lg
                   border
                   border-slate-800
                   bg-slate-900/60
                   p-3
+
+                  sm:grid-cols-[170px_1fr_auto]
+                  sm:items-center
                 "
               >
-                {/* TIPO DE FILTRO */}
+                {/* TIPO */}
 
                 <select
                   value={
@@ -1022,12 +974,13 @@ export default function PlayerSearch({
                   ) =>
                     changeFilterType(
                       filter.id,
-                      event.target
+                      event
+                        .target
                         .value as AdvancedFilterType
                     )
                   }
                   className="
-                    min-w-[150px]
+                    min-w-0
                     rounded-md
                     border
                     border-slate-700
@@ -1037,7 +990,6 @@ export default function PlayerSearch({
                     text-sm
                     text-white
                     outline-none
-                    focus:border-blue-500
                   "
                 >
                   {ADVANCED_FILTER_OPTIONS.map(
@@ -1058,81 +1010,62 @@ export default function PlayerSearch({
                   )}
                 </select>
 
-                {/* =========================================
-                    NACIONALIDAD
-                ========================================= */}
+                {/* VALOR */}
 
                 {filter.type ===
                 "nat" ? (
-                  <>
-                    <span
-                      className="
-                        text-sm
-                        text-slate-400
-                      "
-                    >
-                      Es
-                    </span>
-
-                    <select
-                      value={
-                        filter.value
-                      }
-                      onChange={(
+                  <select
+                    value={
+                      filter.value
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      changeFilterValue(
+                        filter.id,
                         event
-                      ) =>
-                        changeFilterValue(
-                          filter.id,
-                          event.target
-                            .value
-                        )
-                      }
-                      className="
-                        min-w-[220px]
-                        rounded-md
-                        border
-                        border-slate-700
-                        bg-slate-800
-                        px-3
-                        py-2
-                        text-sm
-                        text-white
-                        outline-none
-                        focus:border-blue-500
-                      "
-                    >
-                      <option value="">
-                        Seleccionar nacionalidad
-                      </option>
+                          .target
+                          .value
+                      )
+                    }
+                    className="
+                      min-w-0
+                      rounded-md
+                      border
+                      border-slate-700
+                      bg-slate-800
+                      px-3
+                      py-2
+                      text-sm
+                      text-white
+                      outline-none
+                    "
+                  >
+                    <option value="">
+                      Seleccionar nacionalidad
+                    </option>
 
-                      {nationalities.map(
-                        (nat) => (
-                          <option
-                            key={
-                              nat
-                            }
-                            value={
-                              nat
-                            }
-                          >
-                            {nat.toUpperCase()}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </>
+                    {nationalities.map(
+                      (nat) => (
+                        <option
+                          key={nat}
+                          value={nat}
+                        >
+                          {nat.toUpperCase()}
+                        </option>
+                      )
+                    )}
+                  </select>
                 ) : (
-                  <>
-                    {/* =====================================
-                        FILTROS NUMÉRICOS
-                    ===================================== */}
-
-                    <span
-                      className="
-                        text-sm
-                        text-slate-400
-                      "
-                    >
+                  <div
+                    className="
+                      grid
+                      grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]
+                      items-center
+                      gap-2
+                    "
+                  >
+                    <span className="text-xs text-slate-400 sm:text-sm">
                       Entre
                     </span>
 
@@ -1146,33 +1079,30 @@ export default function PlayerSearch({
                       ) =>
                         changeFilterMin(
                           filter.id,
-                          event.target
+                          event
+                            .target
                             .value
                         )
                       }
                       placeholder="Mín"
                       className="
-                        w-[150px]
+                        min-w-0
                         rounded-md
                         border
                         border-slate-700
                         bg-slate-800
-                        px-3
+                        px-2
                         py-2
                         text-sm
                         text-white
                         outline-none
                         placeholder:text-slate-500
-                        focus:border-blue-500
+
+                        sm:px-3
                       "
                     />
 
-                    <span
-                      className="
-                        text-sm
-                        text-slate-400
-                      "
-                    >
+                    <span className="text-xs text-slate-400 sm:text-sm">
                       y
                     </span>
 
@@ -1186,30 +1116,32 @@ export default function PlayerSearch({
                       ) =>
                         changeFilterMax(
                           filter.id,
-                          event.target
+                          event
+                            .target
                             .value
                         )
                       }
                       placeholder="Máx"
                       className="
-                        w-[150px]
+                        min-w-0
                         rounded-md
                         border
                         border-slate-700
                         bg-slate-800
-                        px-3
+                        px-2
                         py-2
                         text-sm
                         text-white
                         outline-none
                         placeholder:text-slate-500
-                        focus:border-blue-500
+
+                        sm:px-3
                       "
                     />
-                  </>
+                  </div>
                 )}
 
-                {/* BORRAR FILTRO */}
+                {/* BORRAR */}
 
                 <button
                   type="button"
@@ -1222,7 +1154,7 @@ export default function PlayerSearch({
                   className="
                     flex
                     h-10
-                    w-10
+                    w-full
                     items-center
                     justify-center
                     rounded-md
@@ -1232,6 +1164,8 @@ export default function PlayerSearch({
                     text-white
                     transition
                     hover:bg-red-400
+
+                    sm:w-10
                   "
                 >
                   ×
@@ -1242,18 +1176,21 @@ export default function PlayerSearch({
         </div>
       )}
 
-      {/* ===================================================
-          CONTADOR
-      =================================================== */}
+      {/* CONTADOR */}
 
       <div
         className="
           mt-4
           flex
-          items-center
-          justify-between
-          text-sm
+          flex-col
+          gap-2
+          text-xs
           text-slate-500
+
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+          sm:text-sm
         "
       >
         <span>
@@ -1273,6 +1210,7 @@ export default function PlayerSearch({
               clearFilters
             }
             className="
+              self-start
               text-blue-400
               hover:text-blue-300
             "
@@ -1282,13 +1220,12 @@ export default function PlayerSearch({
         )}
       </div>
 
-      {/* ===================================================
-          TABLA
-      =================================================== */}
+      {/* TABLA */}
 
       <div
         className="
           mt-3
+          w-full
           overflow-x-auto
           rounded-xl
           border
@@ -1297,9 +1234,10 @@ export default function PlayerSearch({
       >
         <table
           className="
-            w-full
             min-w-max
-            text-sm
+            text-xs
+
+            sm:text-sm
           "
         >
           <thead
@@ -1403,8 +1341,6 @@ export default function PlayerSearch({
                       hover:bg-slate-900
                     "
                   >
-                    {/* NOMBRE */}
-
                     <td
                       className="
                         whitespace-nowrap
@@ -1416,8 +1352,6 @@ export default function PlayerSearch({
                     >
                       {player.name}
                     </td>
-
-                    {/* EQUIPO */}
 
                     <td
                       className="
@@ -1432,13 +1366,9 @@ export default function PlayerSearch({
                       }
                     </td>
 
-                    {/* EDAD */}
-
                     <td className="px-3 py-3 text-center">
                       {player.age}
                     </td>
-
-                    {/* NACIONALIDAD */}
 
                     <td
                       className="
@@ -1485,13 +1415,11 @@ export default function PlayerSearch({
                       )}
                     </td>
 
-                    {/* POSICIÓN */}
-
                     <td className="p-0">
                       <div
                         className={`
-                          min-w-16
-                          px-4
+                          min-w-14
+                          px-3
                           py-3
                           text-center
                           font-bold
@@ -1506,8 +1434,6 @@ export default function PlayerSearch({
                         {position}
                       </div>
                     </td>
-
-                    {/* MEDIAS */}
 
                     <td className="px-3 py-3 text-center">
                       {player.st}
@@ -1524,8 +1450,6 @@ export default function PlayerSearch({
                     <td className="px-3 py-3 text-center">
                       {player.sh}
                     </td>
-
-                    {/* EXPERIENCIA */}
 
                     <td className="px-3 py-3 text-center">
                       {player.kab}
