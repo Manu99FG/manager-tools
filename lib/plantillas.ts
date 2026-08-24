@@ -3,6 +3,35 @@ import { getDropboxClient } from "@/lib/dropbox";
 const PLANTILLAS_PATH =
   "/ESO - Evolution Soccer Online/Plantillas";
 
+const VALID_TEAM_CODES = new Set([
+  "AJA",
+  "ARS",
+  "ATM",
+  "BDO",
+  "BLE",
+  "BMU",
+  "BOC",
+  "CEL",
+  "CHE",
+  "DEP",
+  "FCB",
+  "FLA",
+  "IND",
+  "INT",
+  "JUV",
+  "LIV",
+  "MAR",
+  "MCI",
+  "MIL",
+  "MUN",
+  "NAP",
+  "OPO",
+  "PAR",
+  "PSG",
+  "PSV",
+  "RIV",
+]);
+
 export type PlantillaFile = {
   name: string;
   filename: string;
@@ -13,32 +42,20 @@ export type PlantillaFile = {
 export async function getPlantillasFiles(): Promise<
   PlantillaFile[]
 > {
-  // Conectamos con Dropbox
   const dbx = getDropboxClient();
 
-  // Obtenemos todos los archivos de la carpeta
+  /*
+   * Solo listamos la carpeta.
+   *
+   * No descargamos las 26 plantillas.
+   */
   const response = await dbx.filesListFolder({
     path: PLANTILLAS_PATH,
   });
 
-  /*
-   * Nos quedamos únicamente con archivos .txt
-   */
-  const txtFiles = response.result.entries.filter(
-    (entry) =>
-      entry[".tag"] === "file" &&
-      entry.name.toLowerCase().endsWith(".txt")
-  );
-
   const plantillas: PlantillaFile[] = [];
 
-  /*
-   * Revisamos los archivos uno por uno.
-   *
-   * No todos los .txt de la carpeta tienen
-   * necesariamente que ser plantillas ESMS.
-   */
-  for (const entry of txtFiles) {
+  for (const entry of response.result.entries) {
     if (entry[".tag"] !== "file") {
       continue;
     }
@@ -47,81 +64,35 @@ export async function getPlantillasFiles(): Promise<
       continue;
     }
 
-    /*
-     * ALL.txt contiene todos los jugadores,
-     * pero no representa a un club individual.
-     */
-    if (entry.name.toUpperCase() === "ALL.TXT") {
+    if (!entry.name.toLowerCase().endsWith(".txt")) {
       continue;
     }
 
-    try {
-      // Descargamos el archivo
-      const download = await dbx.filesDownload({
-        path: entry.path_lower,
-      });
+    const code = entry.name
+      .replace(/\.txt$/i, "")
+      .toUpperCase();
 
-      /*
-       * TypeScript considera fileBlob opcional.
-       *
-       * Comprobamos explícitamente que exista
-       * antes de llamar a .text().
-       */
-      const fileBlob = download.result.fileBlob;
-
-      if (!fileBlob) {
-        console.warn(
-          `No se pudo descargar ${entry.name}`
-        );
-
-        continue;
-      }
-
-      // Convertimos el archivo a texto
-      const text = await fileBlob.text();
-
-      /*
-       * Comprobamos la cabecera para asegurarnos
-       * de que realmente sea una plantilla ESMS.
-       */
-      const firstLine =
-        text.split(/\r?\n/)[0]?.trim() ?? "";
-
-      const isPlantilla =
-        firstLine.includes("Name") &&
-        firstLine.includes("Age") &&
-        firstLine.includes("Nat") &&
-        firstLine.includes("St") &&
-        firstLine.includes("Tk") &&
-        firstLine.includes("Ps") &&
-        firstLine.includes("Sh") &&
-        firstLine.includes("KAb") &&
-        firstLine.includes("Fit");
-
-      if (!isPlantilla) {
-        continue;
-      }
-
-      /*
-       * Guardamos la plantilla válida.
-       */
-      plantillas.push({
-        name: entry.name.replace(/\.txt$/i, ""),
-        filename: entry.name,
-        path: entry.path_lower,
-        modified: entry.server_modified,
-      });
-    } catch (error) {
-      console.error(
-        `Error leyendo ${entry.name}:`,
-        error
-      );
+    /*
+     * Solo aceptamos códigos oficiales.
+     *
+     * Así ignoramos automáticamente:
+     * ALL.txt
+     * SALARIOS.txt
+     * Potenciales.txt
+     * etc.
+     */
+    if (!VALID_TEAM_CODES.has(code)) {
+      continue;
     }
+
+    plantillas.push({
+      name: code,
+      filename: entry.name,
+      path: entry.path_lower,
+      modified: entry.server_modified,
+    });
   }
 
-  /*
-   * Ordenamos los equipos alfabéticamente.
-   */
   return plantillas.sort((a, b) =>
     a.name.localeCompare(b.name)
   );
