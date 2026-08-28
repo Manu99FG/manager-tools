@@ -18,9 +18,72 @@ type ImportResult = {
 
 type ImportResponse = {
   ok?: boolean;
+
   result?: ImportResult;
-  error?: string;
+
+  error?:
+    | string
+    | {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
 };
+
+function formatServerError(
+  error: ImportResponse["error"]
+): string {
+  if (!error) {
+    return "Error desconocido";
+  }
+
+  if (
+    typeof error === "string"
+  ) {
+    return error;
+  }
+
+  const parts: string[] = [];
+
+  if (error.message) {
+    parts.push(
+      error.message
+    );
+  }
+
+  if (error.details) {
+    parts.push(
+      `Detalles: ${error.details}`
+    );
+  }
+
+  if (error.hint) {
+    parts.push(
+      `Hint: ${error.hint}`
+    );
+  }
+
+  if (error.code) {
+    parts.push(
+      `Código: ${error.code}`
+    );
+  }
+
+  if (parts.length > 0) {
+    return parts.join(
+      " | "
+    );
+  }
+
+  try {
+    return JSON.stringify(
+      error
+    );
+  } catch {
+    return "Error desconocido";
+  }
+}
 
 export default function PlayerHistoryImporter() {
   const [loading, setLoading] =
@@ -45,6 +108,7 @@ export default function PlayerHistoryImporter() {
           "/api/player-history/import",
           {
             method: "POST",
+
             headers: {
               Accept:
                 "application/json",
@@ -58,29 +122,32 @@ export default function PlayerHistoryImporter() {
       let data: ImportResponse;
 
       try {
-        data = JSON.parse(
-          rawResponse
-        ) as ImportResponse;
+        data =
+          JSON.parse(
+            rawResponse
+          ) as ImportResponse;
       } catch {
         throw new Error(
           `El servidor devolvió una respuesta no válida (${response.status}): ${rawResponse.slice(
             0,
-            500
+            1000
           )}`
         );
       }
 
       if (!response.ok) {
         throw new Error(
-          data.error ??
-            `Error HTTP ${response.status}`
+          formatServerError(
+            data.error
+          )
         );
       }
 
       if (!data.ok) {
         throw new Error(
-          data.error ??
-            "Error importando el historial"
+          formatServerError(
+            data.error
+          )
         );
       }
 
@@ -101,10 +168,11 @@ export default function PlayerHistoryImporter() {
       );
 
       setError(
-        caughtError instanceof
-          Error
+        caughtError instanceof Error
           ? caughtError.message
-          : "Error desconocido"
+          : String(
+              caughtError
+            )
       );
     } finally {
       setLoading(false);
@@ -280,7 +348,9 @@ export default function PlayerHistoryImporter() {
             />
           </div>
 
-          {result.errorDetails.length >
+          {result
+            .errorDetails
+            .length >
             0 && (
             <div
               className="
@@ -332,55 +402,57 @@ export default function PlayerHistoryImporter() {
                   divide-red-900/40
                 "
               >
-                {result.errorDetails.map(
-                  (
-                    item,
-                    index
-                  ) => (
-                    <div
-                      key={`${item.team}:${item.player}:${index}`}
-                      className="p-4"
-                    >
+                {result
+                  .errorDetails
+                  .map(
+                    (
+                      item,
+                      index
+                    ) => (
                       <div
-                        className="
-                          font-semibold
-                          text-white
-                        "
+                        key={`${item.team}:${item.player}:${index}`}
+                        className="p-4"
                       >
-                        {
-                          item.player
-                        }
-
-                        <span
+                        <div
                           className="
-                            ml-2
-                            text-xs
-                            text-slate-500
+                            font-semibold
+                            text-white
                           "
                         >
                           {
-                            item.team
+                            item.player
                           }
-                        </span>
-                      </div>
 
-                      <code
-                        className="
-                          mt-2
-                          block
-                          whitespace-pre-wrap
-                          break-words
-                          text-xs
-                          text-red-300
-                        "
-                      >
-                        {
-                          item.error
-                        }
-                      </code>
-                    </div>
-                  )
-                )}
+                          <span
+                            className="
+                              ml-2
+                              text-xs
+                              text-slate-500
+                            "
+                          >
+                            {
+                              item.team
+                            }
+                          </span>
+                        </div>
+
+                        <code
+                          className="
+                            mt-2
+                            block
+                            whitespace-pre-wrap
+                            break-words
+                            text-xs
+                            text-red-300
+                          "
+                        >
+                          {
+                            item.error
+                          }
+                        </code>
+                      </div>
+                    )
+                  )}
               </div>
             </div>
           )}
@@ -407,9 +479,10 @@ export default function PlayerHistoryImporter() {
             Error
           </div>
 
-          <div
+          <code
             className="
               mt-2
+              block
               whitespace-pre-wrap
               break-words
               text-sm
@@ -417,7 +490,7 @@ export default function PlayerHistoryImporter() {
             "
           >
             {error}
-          </div>
+          </code>
         </div>
       )}
     </div>
