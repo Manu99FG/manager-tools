@@ -2,37 +2,74 @@ import Image from "next/image";
 import Link from "next/link";
 
 import PlayersTable from "@/components/PlayersTable";
-import { getClubLogo } from "@/lib/club-logo";
-import { getClubName } from "@/lib/club-names";
-import { getDropboxClient } from "@/lib/dropbox";
-import { parseEsmsPlantilla } from "@/lib/parser-esms";
+
+import {
+  getClubLogo,
+} from "@/lib/club-logo";
+
+import {
+  getClubName,
+} from "@/lib/club-names";
+
+import {
+  getDropboxClient,
+} from "@/lib/dropbox";
+
+import {
+  parseEsmsPlantilla,
+} from "@/lib/parser-esms";
+
+import {
+  getPlayerIdMap,
+  getPlayerIdentityKey,
+} from "@/lib/player-history";
 
 /*
  * Las plantillas individuales deben obtener siempre
  * la versión actual del archivo de Dropbox.
  */
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
+
 export const revalidate = 0;
 
 export default async function TeamPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{
+    id: string;
+  }>;
 }) {
-  const { id } = await params;
+  /* =======================================================
+     EQUIPO
+  ======================================================= */
 
-  const team = decodeURIComponent(id).toUpperCase();
+  const {
+    id,
+  } = await params;
 
-  const dbx = getDropboxClient();
+  const team =
+    decodeURIComponent(
+      id
+    ).toUpperCase();
+
+  /* =======================================================
+     DROPBOX
+  ======================================================= */
+
+  const dbx =
+    getDropboxClient();
 
   const path =
     `/ESO - Evolution Soccer Online/Plantillas/${team}.txt`;
 
-  const download = await dbx.filesDownload({
-    path,
-  });
+  const download =
+    await dbx.filesDownload({
+      path,
+    });
 
-  const fileBlob = download.result.fileBlob;
+  const fileBlob =
+    download.result.fileBlob;
 
   if (!fileBlob) {
     throw new Error(
@@ -40,15 +77,91 @@ export default async function TeamPage({
     );
   }
 
-  const text = await fileBlob.text();
+  const text =
+    await fileBlob.text();
 
-  const players = parseEsmsPlantilla(text);
+  /* =======================================================
+     PARSEAR PLANTILLA
+  ======================================================= */
 
-  const clubName = getClubName(team);
-  const clubLogo = getClubLogo(team);
+  const parsedPlayers =
+    parseEsmsPlantilla(
+      text
+    );
+
+  /* =======================================================
+     ASOCIAR UUID DE SUPABASE
+  ======================================================= */
+
+  let playerIdMap =
+    new Map<
+      string,
+      string
+    >();
+
+  try {
+    playerIdMap =
+      await getPlayerIdMap();
+  } catch (
+    error
+  ) {
+    /*
+     * Si Supabase falla temporalmente,
+     * no queremos impedir que se vea
+     * la plantilla.
+     *
+     * Los jugadores simplemente aparecerán
+     * sin enlace histórico.
+     */
+
+    console.error(
+      `No se pudieron obtener los IDs históricos de ${team}:`,
+      error
+    );
+  }
+
+  const players =
+    parsedPlayers.map(
+      (player) => {
+        const identityKey =
+          getPlayerIdentityKey(
+            player.name,
+            player.nat
+          );
+
+        return {
+          ...player,
+
+          playerId:
+            playerIdMap.get(
+              identityKey
+            ) ?? null,
+        };
+      }
+    );
+
+  /* =======================================================
+     DATOS DEL CLUB
+  ======================================================= */
+
+  const clubName =
+    getClubName(
+      team
+    );
+
+  const clubLogo =
+    getClubLogo(
+      team
+    );
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <div>
+      {/* VOLVER */}
+
       <Link
         href="/plantillas"
         className="
@@ -61,13 +174,29 @@ export default async function TeamPage({
           font-semibold
           text-white
           transition
+
           hover:bg-slate-700
         "
       >
         ← Volver a Plantillas
       </Link>
 
-      <div className="mt-8 flex items-center gap-6">
+      {/* CABECERA */}
+
+      <div
+        className="
+          mt-8
+          flex
+          flex-col
+          gap-5
+
+          sm:flex-row
+          sm:items-center
+          sm:gap-6
+        "
+      >
+        {/* ESCUDO */}
+
         <div
           className="
             relative
@@ -80,14 +209,21 @@ export default async function TeamPage({
           "
         >
           <Image
-            src={clubLogo}
+            src={
+              clubLogo
+            }
             alt={`Escudo de ${clubName}`}
             fill
             sizes="96px"
-            className="object-contain p-3"
+            className="
+              object-contain
+              p-3
+            "
             priority
           />
         </div>
+
+        {/* INFORMACIÓN */}
 
         <div>
           <p
@@ -102,11 +238,28 @@ export default async function TeamPage({
             Plantilla oficial ESMS
           </p>
 
-          <h1 className="mt-2 text-4xl font-bold text-white">
+          <h1
+            className="
+              mt-2
+              text-3xl
+              font-bold
+              text-white
+
+              sm:text-4xl
+            "
+          >
             {clubName}
           </h1>
 
-          <div className="mt-2 flex items-center gap-3">
+          <div
+            className="
+              mt-2
+              flex
+              flex-wrap
+              items-center
+              gap-3
+            "
+          >
             <span
               className="
                 rounded-md
@@ -121,17 +274,31 @@ export default async function TeamPage({
               {team}
             </span>
 
-            <span className="text-sm text-slate-400">
-              {players.length} jugadores
+            <span
+              className="
+                text-sm
+                text-slate-400
+              "
+            >
+              {
+                players.length
+              }{" "}
+              jugadores
             </span>
           </div>
         </div>
       </div>
 
+      {/* TABLA */}
+
       <div className="mt-8">
         <PlayersTable
-          players={players}
-          team={team}
+          players={
+            players
+          }
+          team={
+            team
+          }
         />
       </div>
     </div>

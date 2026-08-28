@@ -4,11 +4,10 @@ import {
 } from "@/lib/all-players";
 
 import {
+  buildPlayerHistoryEvents,
   buildPlayerSnapshot,
-  getHistoryEventType,
   getPlayerIdentityKey,
   hasPlayerChanged,
-  TRACKED_STATS,
 } from "@/lib/player-history";
 
 import type {
@@ -26,7 +25,9 @@ import {
 
 export type ImportError = {
   player: string;
+
   team: string;
+
   error: string;
 };
 
@@ -50,91 +51,6 @@ export type ImportHistoryResult = {
 };
 
 /* =========================================================
-   ERROR
-========================================================= */
-
-function getErrorMessage(
-  error: unknown
-) {
-  if (
-    error instanceof Error
-  ) {
-    return error.message;
-  }
-
-  if (
-    error &&
-    typeof error === "object"
-  ) {
-    const possible =
-      error as {
-        message?: unknown;
-        details?: unknown;
-        hint?: unknown;
-        code?: unknown;
-      };
-
-    const parts: string[] =
-      [];
-
-    if (
-      typeof possible.message ===
-      "string"
-    ) {
-      parts.push(
-        possible.message
-      );
-    }
-
-    if (
-      typeof possible.details ===
-      "string"
-    ) {
-      parts.push(
-        `Detalles: ${possible.details}`
-      );
-    }
-
-    if (
-      typeof possible.hint ===
-      "string"
-    ) {
-      parts.push(
-        `Hint: ${possible.hint}`
-      );
-    }
-
-    if (
-      typeof possible.code ===
-      "string"
-    ) {
-      parts.push(
-        `Código: ${possible.code}`
-      );
-    }
-
-    if (
-      parts.length >
-      0
-    ) {
-      return parts.join(
-        " | "
-      );
-    }
-
-    try {
-      return JSON.stringify(
-        error
-      );
-    } catch {
-      return String(error);
-    }
-  }
-
-  return String(error);
-}
-
-/* =========================================================
    ELIMINAR DUPLICADOS
 ========================================================= */
 
@@ -156,11 +72,6 @@ function deduplicatePlayers(
         player.nat
       );
 
-    /*
-     * Si hubiera accidentalmente
-     * el mismo jugador dos veces,
-     * conservamos la última aparición.
-     */
     map.set(
       key,
       player
@@ -180,12 +91,10 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   const supabase =
     getSupabaseAdmin();
 
-  /*
-   * getAllPlayers(false):
-   * no queremos consultar IDs históricos
-   * todavía porque precisamente estamos
-   * haciendo la importación.
-   */
+  /* =======================================================
+     PLANTILLAS
+  ======================================================= */
+
   const rawPlayers =
     await getAllPlayers({
       includePlayerIds:
@@ -201,7 +110,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     new Date().toISOString();
 
   /* =======================================================
-     1. LEER JUGADORES EXISTENTES
+     JUGADORES EXISTENTES
   ======================================================= */
 
   const {
@@ -242,7 +151,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     2. DETECTAR JUGADORES NUEVOS
+     NUEVOS JUGADORES
   ======================================================= */
 
   const missingPlayers =
@@ -281,24 +190,23 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       );
 
     const {
-      error:
-        insertPlayersError,
+      error,
     } =
       await supabase
         .from("players")
-        .insert(rows);
+        .insert(
+          rows
+        );
 
     if (
-      insertPlayersError
+      error
     ) {
-      throw insertPlayersError;
+      throw error;
     }
   }
 
   /* =======================================================
-     3. VOLVER A LEER JUGADORES
-
-     Ahora ya tenemos los UUID de los nuevos.
+     RECARGAR JUGADORES PARA IDS
   ======================================================= */
 
   const {
@@ -339,9 +247,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     4. LEER SOLO ÚLTIMO SNAPSHOT
-
-     Gracias a la VIEW que creamos.
+     ÚLTIMOS SNAPSHOTS
   ======================================================= */
 
   const {
@@ -381,7 +287,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     5. DETECTAR CAMBIOS EN MEMORIA
+     DETECTAR CAMBIOS
   ======================================================= */
 
   const changedPlayers: {
@@ -395,7 +301,8 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       PlayerSnapshot | null;
   }[] = [];
 
-  let unchanged = 0;
+  let unchanged =
+    0;
 
   for (
     const player of players
@@ -412,14 +319,15 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       !databasePlayer
     ) {
       throw new Error(
-        `No se encontró el registro de ${player.name} después de crearlo.`
+        `No se encontró ${player.name} en la base de datos.`
       );
     }
 
     const previous =
       snapshotMap.get(
         databasePlayer.id
-      ) ?? null;
+      ) ??
+      null;
 
     if (
       previous &&
@@ -435,17 +343,20 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
 
     changedPlayers.push({
       player,
+
       databasePlayer,
+
       previous,
     });
   }
 
   /* =======================================================
-     6. INSERTAR SNAPSHOTS DE UNA VEZ
+     SNAPSHOTS
   ======================================================= */
 
   let createdSnapshots: {
     id: string;
+
     player_id: string;
   }[] = [];
 
@@ -453,7 +364,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     changedPlayers.length >
     0
   ) {
-    const snapshotRows =
+    const rows =
       changedPlayers.map(
         ({
           player,
@@ -475,18 +386,21 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           "player_snapshots"
         )
         .insert(
-          snapshotRows
+          rows
         )
         .select(
           "id, player_id"
         );
 
-    if (error) {
+    if (
+      error
+    ) {
       throw error;
     }
 
     createdSnapshots =
-      data ?? [];
+      data ??
+      [];
   }
 
   const createdSnapshotMap =
@@ -505,7 +419,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     7. TRANSFERENCIAS
+     TRANSFERENCIAS
   ======================================================= */
 
   const transferRows =
@@ -550,106 +464,76 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       error,
     } =
       await supabase
-        .from("transfers")
+        .from(
+          "transfers"
+        )
         .insert(
           transferRows
         );
 
-    if (error) {
+    if (
+      error
+    ) {
       throw error;
     }
   }
 
   /* =======================================================
-     8. EVENTOS
+     EVENTOS
   ======================================================= */
 
-  const eventRows: {
-    player_id: string;
-    snapshot_id: string;
-    event_type: string;
-    stat: string;
-    old_value: string;
-    new_value: string;
-    created_at: string;
-  }[] = [];
+  const eventRows =
+    changedPlayers.flatMap(
+      ({
+        player,
+        databasePlayer,
+        previous,
+      }) => {
+        /*
+         * Primer snapshot:
+         * no existe valor anterior.
+         */
+        if (
+          !previous
+        ) {
+          return [];
+        }
 
-  for (
-    const {
-      player,
-      databasePlayer,
-      previous,
-    } of changedPlayers
-  ) {
-    if (!previous) {
-      continue;
-    }
+        const snapshotId =
+          createdSnapshotMap.get(
+            databasePlayer.id
+          );
 
-    const snapshotId =
-      createdSnapshotMap.get(
-        databasePlayer.id
-      );
+        if (
+          !snapshotId
+        ) {
+          return [];
+        }
 
-    if (!snapshotId) {
-      continue;
-    }
+        return buildPlayerHistoryEvents({
+          playerId:
+            databasePlayer.id,
 
-    for (
-      const stat of TRACKED_STATS
-    ) {
-      const oldValue =
-        previous[stat];
-
-      const newValue =
-        player[stat];
-
-      if (
-        oldValue ===
-        newValue
-      ) {
-        continue;
-      }
-
-      eventRows.push({
-        player_id:
-          databasePlayer.id,
-
-        snapshot_id:
           snapshotId,
 
-        event_type:
-          getHistoryEventType(
-            stat,
-            oldValue,
-            newValue
-          ),
+          previous,
 
-        stat,
+          player,
 
-        old_value:
-          String(
-            oldValue
-          ),
+          createdAt:
+            now,
+        });
+      }
+    );
 
-        new_value:
-          String(
-            newValue
-          ),
-
-        created_at:
-          now,
-      });
-    }
-  }
+  /* =======================================================
+     INSERTAR EVENTOS EN BLOQUES
+  ======================================================= */
 
   if (
     eventRows.length >
     0
   ) {
-    /*
-     * Por seguridad insertamos
-     * eventos en lotes de 500.
-     */
     const chunkSize =
       500;
 
@@ -658,7 +542,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       index <
       eventRows.length;
       index +=
-        chunkSize
+      chunkSize
     ) {
       const chunk =
         eventRows.slice(
@@ -678,17 +562,16 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
             chunk
           );
 
-      if (error) {
+      if (
+        error
+      ) {
         throw error;
       }
     }
   }
 
   /* =======================================================
-     9. ACTUALIZAR CLUB ACTUAL
-
-     Usamos UUID como conflicto, por lo que
-     esto sí puede hacerse en bloque.
+     ACTUALIZAR CLUB ACTUAL
   ======================================================= */
 
   const playerUpdates =
@@ -734,7 +617,9 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           }
         );
 
-    if (error) {
+    if (
+      error
+    ) {
       throw error;
     }
   }
@@ -761,8 +646,10 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     events:
       eventRows.length,
 
-    errors: 0,
+    errors:
+      0,
 
-    errorDetails: [],
+    errorDetails:
+      [],
   };
 }

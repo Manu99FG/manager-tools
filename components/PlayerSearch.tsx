@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import PlayerNameLink from "@/components/PlayerNameLink";
+
 import type {
   GlobalEsmsPlayer,
 } from "@/lib/all-players";
@@ -1350,7 +1352,20 @@ export default function PlayerSearch({
                         text-white
                       "
                     >
-                      {player.name}
+                      <PlayerNameLink
+                        playerId={
+                          player.playerId
+                        }
+                        name={
+                          player.name
+                        }
+                        className="
+                          font-semibold
+                          text-white
+                          transition
+                          hover:text-blue-400
+                        "
+                      />
                     </td>
 
                     <td
