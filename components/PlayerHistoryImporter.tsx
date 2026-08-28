@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
 type ImportError = {
   player: string;
@@ -15,35 +13,30 @@ type ImportResult = {
   saved: number;
   unchanged: number;
   errors: number;
+  errorDetails: ImportError[];
+};
 
-  errorDetails:
-    ImportError[];
+type ImportResponse = {
+  ok?: boolean;
+  result?: ImportResult;
+  error?: string;
 };
 
 export default function PlayerHistoryImporter() {
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [
-    result,
-    setResult,
-  ] =
+  const [result, setResult] =
     useState<ImportResult | null>(
       null
     );
 
-  const [
-    error,
-    setError,
-  ] = useState("");
+  const [error, setError] =
+    useState("");
 
   async function handleImport() {
     setLoading(true);
-
     setError("");
-
     setResult(null);
 
     try {
@@ -52,19 +45,48 @@ export default function PlayerHistoryImporter() {
           "/api/player-history/import",
           {
             method: "POST",
+            headers: {
+              Accept:
+                "application/json",
+            },
           }
         );
 
-      const data =
-        await response.json();
+      const rawResponse =
+        await response.text();
 
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
+      let data: ImportResponse;
+
+      try {
+        data = JSON.parse(
+          rawResponse
+        ) as ImportResponse;
+      } catch {
+        throw new Error(
+          `El servidor devolvió una respuesta no válida (${response.status}): ${rawResponse.slice(
+            0,
+            500
+          )}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            `Error HTTP ${response.status}`
+        );
+      }
+
+      if (!data.ok) {
         throw new Error(
           data.error ??
             "Error importando el historial"
+        );
+      }
+
+      if (!data.result) {
+        throw new Error(
+          "El servidor no devolvió el resultado de la importación."
         );
       }
 
@@ -74,6 +96,10 @@ export default function PlayerHistoryImporter() {
     } catch (
       caughtError
     ) {
+      console.error(
+        caughtError
+      );
+
       setError(
         caughtError instanceof
           Error
@@ -158,6 +184,61 @@ export default function PlayerHistoryImporter() {
         </button>
       </div>
 
+      {loading && (
+        <div
+          className="
+            mt-5
+            rounded-lg
+            border
+            border-blue-900/50
+            bg-blue-950/20
+            p-4
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              gap-3
+            "
+          >
+            <div
+              className="
+                h-4
+                w-4
+                animate-spin
+                rounded-full
+                border-2
+                border-blue-400
+                border-t-transparent
+              "
+            />
+
+            <div>
+              <div
+                className="
+                  text-sm
+                  font-semibold
+                  text-blue-300
+                "
+              >
+                Actualizando historial...
+              </div>
+
+              <div
+                className="
+                  mt-1
+                  text-xs
+                  text-slate-500
+                "
+              >
+                Leyendo plantillas y comparando jugadores.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {result && (
         <>
           <div
@@ -199,8 +280,7 @@ export default function PlayerHistoryImporter() {
             />
           </div>
 
-          {result.errorDetails
-            ?.length >
+          {result.errorDetails.length >
             0 && (
             <div
               className="
@@ -259,9 +339,7 @@ export default function PlayerHistoryImporter() {
                   ) => (
                     <div
                       key={`${item.team}:${item.player}:${index}`}
-                      className="
-                        p-4
-                      "
+                      className="p-4"
                     >
                       <div
                         className="
@@ -312,17 +390,34 @@ export default function PlayerHistoryImporter() {
       {error && (
         <div
           className="
-            mt-4
+            mt-5
             rounded-lg
             border
             border-red-900
             bg-red-950/40
-            p-3
-            text-sm
-            text-red-400
+            p-4
           "
         >
-          {error}
+          <div
+            className="
+              font-bold
+              text-red-400
+            "
+          >
+            Error
+          </div>
+
+          <div
+            className="
+              mt-2
+              whitespace-pre-wrap
+              break-words
+              text-sm
+              text-red-300
+            "
+          >
+            {error}
+          </div>
         </div>
       )}
     </div>
