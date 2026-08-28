@@ -23,9 +23,11 @@ import BenchSelector, {
   type BenchSlot,
 } from "@/components/BenchSelector";
 
-import ChangeBuilder, {
-  type EsmsChange,
-} from "@/components/ChangeBuilder";
+import StrategyBuilder, {
+  type Strategy,
+} from "@/components/StrategyBuilder";
+
+import PlayerNameLink from "@/components/PlayerNameLink";
 
 /* =========================================================
    TIPOS
@@ -54,82 +56,188 @@ type TacticalStyle =
   | "L"
   | "P";
 
+type Props = {
+  players: GlobalEsmsPlayer[];
+};
+
 /* =========================================================
-   ORDEN DE POSICIONES
+   CONSTANTES
 ========================================================= */
+
+const ASSIGNED_POSITIONS: {
+  value: AssignedPosition;
+  label: string;
+}[] = [
+  {
+    value: "",
+    label: "-",
+  },
+  {
+    value: "GK",
+    label: "GK",
+  },
+  {
+    value: "DF",
+    label: "DF",
+  },
+  {
+    value: "DM",
+    label: "DM",
+  },
+  {
+    value: "MF",
+    label: "MF",
+  },
+  {
+    value: "AM",
+    label: "AM",
+  },
+  {
+    value: "FW",
+    label: "FW",
+  },
+];
+
+const TACTICS: {
+  value: TacticalStyle;
+  label: string;
+}[] = [
+  {
+    value: "N",
+    label: "N - Normal",
+  },
+  {
+    value: "A",
+    label: "A - Ataque",
+  },
+  {
+    value: "D",
+    label: "D - Defensa",
+  },
+  {
+    value: "C",
+    label: "C - Contraataque",
+  },
+  {
+    value: "L",
+    label: "L - Juego largo",
+  },
+  {
+    value: "P",
+    label: "P - Pases",
+  },
+  {
+    value: "E",
+    label: "E - Europea",
+  },
+];
 
 const POSITION_ORDER: Record<
   EsmsPosition,
   number
 > = {
-  GK: 1,
-  DF: 2,
-  DM: 3,
-  MF: 4,
-  AM: 5,
-  FW: 6,
+  GK: 0,
+  DF: 1,
+  DM: 2,
+  MF: 3,
+  AM: 4,
+  FW: 5,
 };
 
 /* =========================================================
-   COLORES
+   HELPERS
 ========================================================= */
 
-const POSITION_COLORS: Record<
-  EsmsPosition,
-  string
-> = {
-  GK: "bg-yellow-400 text-black",
-  DF: "bg-blue-500 text-white",
-  DM: "bg-cyan-500 text-slate-950",
-  MF: "bg-green-500 text-slate-950",
-  AM: "bg-violet-500 text-white",
-  FW: "bg-red-500 text-white",
-};
-
-const ASSIGNED_POSITION_COLORS: Record<
-  Exclude<AssignedPosition, "">,
-  string
-> = {
-  GK: "bg-yellow-400 text-black",
-  DF: "bg-blue-500 text-white",
-  DM: "bg-cyan-500 text-slate-950",
-  MF: "bg-green-500 text-slate-950",
-  AM: "bg-violet-500 text-white",
-  FW: "bg-red-500 text-white",
-};
-
-/* =========================================================
-   BANQUILLO VACÍO
-========================================================= */
+function getPlayerKey(
+  player: GlobalEsmsPlayer
+) {
+  return `${player.teamCode}:${player.name}`;
+}
 
 function createEmptyBench(): BenchSlot[] {
-  return [
+  return Array.from(
     {
-      id: 1,
+      length: 5,
+    },
+    (_, index) => ({
+      id: index + 1,
       position: "",
       playerKey: "",
-    },
-    {
-      id: 2,
-      position: "",
-      playerKey: "",
-    },
-    {
-      id: 3,
-      position: "",
-      playerKey: "",
-    },
-    {
-      id: 4,
-      position: "",
-      playerKey: "",
-    },
-    {
-      id: 5,
-      position: "",
-      playerKey: "",
-    },
-  ];
+    })
+  );
+}
+
+function getPositionStorageKey(
+  player: GlobalEsmsPlayer
+) {
+  return `manager-tools-position:${player.teamCode}:${player.name}`;
+}
+
+function getPositionClass(
+  position:
+    | EsmsPosition
+    | AssignedPosition
+) {
+  switch (position) {
+    case "GK":
+      return `
+        border-yellow-500/40
+        bg-yellow-500/10
+        text-yellow-300
+      `;
+
+    case "DF":
+      return `
+        border-blue-500/40
+        bg-blue-500/10
+        text-blue-300
+      `;
+
+    case "DM":
+      return `
+        border-cyan-500/40
+        bg-cyan-500/10
+        text-cyan-300
+      `;
+
+    case "MF":
+      return `
+        border-emerald-500/40
+        bg-emerald-500/10
+        text-emerald-300
+      `;
+
+    case "AM":
+      return `
+        border-violet-500/40
+        bg-violet-500/10
+        text-violet-300
+      `;
+
+    case "FW":
+      return `
+        border-red-500/40
+        bg-red-500/10
+        text-red-300
+      `;
+
+    default:
+      return `
+        border-slate-700
+        bg-slate-800
+        text-slate-300
+      `;
+  }
+}
+
+function getRatingClass(
+  value: number
+) {
+  if (value >= 16) {
+    return "font-bold text-emerald-400";
+  }
+
+  return "text-slate-300";
 }
 
 /* =========================================================
@@ -138,13 +246,7 @@ function createEmptyBench(): BenchSlot[] {
 
 export default function ShtCreator({
   players,
-}: {
-  players: GlobalEsmsPlayer[];
-}) {
-  /* =======================================================
-     ESTADOS GENERALES
-  ======================================================= */
-
+}: Props) {
   const [
     selectedTeam,
     setSelectedTeam,
@@ -171,10 +273,6 @@ export default function ShtCreator({
       "starters"
     );
 
-  /* =======================================================
-     TITULARES
-  ======================================================= */
-
   const [
     assignedPositions,
     setAssignedPositions,
@@ -185,10 +283,6 @@ export default function ShtCreator({
     >
   >({});
 
-  /* =======================================================
-     BANQUILLO
-  ======================================================= */
-
   const [
     bench,
     setBench,
@@ -197,20 +291,11 @@ export default function ShtCreator({
       createEmptyBench()
     );
 
-  /* =======================================================
-     CAMBIOS
-  ======================================================= */
-
   const [
-    changes,
-    setChanges,
-  ] = useState<
-    EsmsChange[]
-  >([]);
-
-  /* =======================================================
-     POSICIONES NATURALES
-  ======================================================= */
+    strategies,
+    setStrategies,
+  ] =
+    useState<Strategy[]>([]);
 
   const [
     positions,
@@ -222,14 +307,12 @@ export default function ShtCreator({
     >
   >({});
 
-  function getPlayerKey(
-    player: GlobalEsmsPlayer
-  ): string {
-    return `${player.teamCode}:${player.name}`;
-  }
+  /* =======================================================
+     POSICIONES NATURALES
+  ======================================================= */
 
   useEffect(() => {
-    const resolved: Record<
+    const nextPositions: Record<
       string,
       EsmsPosition
     > = {};
@@ -243,62 +326,79 @@ export default function ShtCreator({
         );
 
       const storageKey =
-        `manager-tools-position:${key}`;
+        getPositionStorageKey(
+          player
+        );
 
-      const previous =
-        localStorage.getItem(
-          storageKey
-        ) as
-          | EsmsPosition
-          | null;
+      const calculated =
+        getPlayerProfile(
+          player
+        );
 
       if (
-        !hasMainRatingTie(
+        typeof window ===
+        "undefined"
+      ) {
+        nextPositions[key] =
+          calculated;
+
+        continue;
+      }
+
+      if (
+        hasMainRatingTie(
           player
         )
       ) {
-        const current =
-          getPlayerProfile(
-            player
+        const saved =
+          window.localStorage.getItem(
+            storageKey
+          ) as EsmsPosition | null;
+
+        if (
+          saved &&
+          [
+            "GK",
+            "DF",
+            "DM",
+            "MF",
+            "AM",
+            "FW",
+          ].includes(
+            saved
+          )
+        ) {
+          nextPositions[key] =
+            saved;
+        } else {
+          const fallback =
+            getTieFallbackPosition(
+              player
+            );
+
+          nextPositions[key] =
+            fallback;
+
+          window.localStorage.setItem(
+            storageKey,
+            fallback
           );
+        }
+      } else {
+        nextPositions[key] =
+          calculated;
 
-        resolved[key] =
-          current;
-
-        localStorage.setItem(
+        window.localStorage.setItem(
           storageKey,
-          current
+          calculated
         );
-
-        continue;
       }
-
-      if (previous) {
-        resolved[key] =
-          previous;
-
-        continue;
-      }
-
-      resolved[key] =
-        getTieFallbackPosition(
-          player
-        );
     }
 
-    setPositions(resolved);
-  }, [players]);
-
-  function resolvePosition(
-    player: GlobalEsmsPlayer
-  ): EsmsPosition {
-    return (
-      positions[
-        getPlayerKey(player)
-      ] ??
-      getPlayerProfile(player)
+    setPositions(
+      nextPositions
     );
-  }
+  }, [players]);
 
   /* =======================================================
      EQUIPOS
@@ -306,7 +406,7 @@ export default function ShtCreator({
 
   const teams =
     useMemo(() => {
-      const map =
+      const teamMap =
         new Map<
           string,
           string
@@ -315,28 +415,56 @@ export default function ShtCreator({
       for (
         const player of players
       ) {
-        map.set(
-          player.teamCode,
-          player.teamName
-        );
+        if (
+          !teamMap.has(
+            player.teamCode
+          )
+        ) {
+          teamMap.set(
+            player.teamCode,
+            player.teamName
+          );
+        }
       }
 
       return Array.from(
-        map.entries()
+        teamMap.entries()
       )
         .map(
-          ([code, name]) => ({
+          ([
+            code,
+            name,
+          ]) => ({
             code,
             name,
           })
         )
-        .sort((a, b) =>
-          a.name.localeCompare(
-            b.name,
-            "es"
-          )
+        .sort(
+          (a, b) =>
+            a.name.localeCompare(
+              b.name
+            )
         );
     }, [players]);
+
+  /* =======================================================
+     RESOLVER POSICIÓN NATURAL
+  ======================================================= */
+
+  function resolvePosition(
+    player: GlobalEsmsPlayer
+  ): EsmsPosition {
+    return (
+      positions[
+        getPlayerKey(
+          player
+        )
+      ] ??
+      getPlayerProfile(
+        player
+      )
+    );
+  }
 
   /* =======================================================
      JUGADORES DEL EQUIPO
@@ -344,7 +472,9 @@ export default function ShtCreator({
 
   const teamPlayers =
     useMemo(() => {
-      if (!selectedTeam) {
+      if (
+        !selectedTeam
+      ) {
         return [];
       }
 
@@ -354,48 +484,73 @@ export default function ShtCreator({
             player.teamCode ===
             selectedTeam
         )
-        .sort((a, b) => {
-          const positionA =
-            resolvePosition(a);
+        .sort(
+          (a, b) => {
+            const positionA =
+              positions[
+                getPlayerKey(
+                  a
+                )
+              ] ??
+              getPlayerProfile(
+                a
+              );
 
-          const positionB =
-            resolvePosition(b);
+            const positionB =
+              positions[
+                getPlayerKey(
+                  b
+                )
+              ] ??
+              getPlayerProfile(
+                b
+              );
 
-          const positionDifference =
-            POSITION_ORDER[
-              positionA
-            ] -
-            POSITION_ORDER[
-              positionB
-            ];
+            const order =
+              POSITION_ORDER[
+                positionA
+              ] -
+              POSITION_ORDER[
+                positionB
+              ];
 
-          if (
-            positionDifference !==
-            0
-          ) {
-            return positionDifference;
+            if (
+              order !== 0
+            ) {
+              return order;
+            }
+
+            const ratingA =
+              Math.max(
+                a.st,
+                a.tk,
+                a.ps,
+                a.sh
+              );
+
+            const ratingB =
+              Math.max(
+                b.st,
+                b.tk,
+                b.ps,
+                b.sh
+              );
+
+            if (
+              ratingA !==
+              ratingB
+            ) {
+              return (
+                ratingB -
+                ratingA
+              );
+            }
+
+            return a.name.localeCompare(
+              b.name
+            );
           }
-
-          const ratingA =
-            Math.max(
-              a.st,
-              a.tk,
-              a.ps,
-              a.sh
-            );
-
-          const ratingB =
-            Math.max(
-              b.st,
-              b.tk,
-              b.ps,
-              b.sh
-            );
-
-          return (
-            ratingB - ratingA
-          );
-        });
+        );
     }, [
       players,
       selectedTeam,
@@ -416,8 +571,8 @@ export default function ShtCreator({
 
       return teamPlayers.filter(
         (player) =>
-          player.sus === 0 &&
-          player.inj === 0
+          player.sus <= 0 &&
+          player.inj <= 0
       );
     }, [
       teamPlayers,
@@ -425,7 +580,7 @@ export default function ShtCreator({
     ]);
 
   /* =======================================================
-     RESET AL CAMBIAR EQUIPO
+     REINICIAR AL CAMBIAR EQUIPO
   ======================================================= */
 
   useEffect(() => {
@@ -437,53 +592,12 @@ export default function ShtCreator({
       createEmptyBench()
     );
 
-    setChanges([]);
+    setStrategies([]);
 
     setActiveTab(
       "starters"
     );
   }, [selectedTeam]);
-
-  /* =======================================================
-     ASIGNAR POSICIÓN
-  ======================================================= */
-
-  function handleAssignedPosition(
-    player: GlobalEsmsPlayer,
-    position: AssignedPosition
-  ) {
-    const key =
-      getPlayerKey(player);
-
-    /*
-     * Si un jugador entra como titular,
-     * desaparece automáticamente del banquillo.
-     */
-    if (position) {
-      setBench(
-        (current) =>
-          current.map(
-            (slot) =>
-              slot.playerKey ===
-              key
-                ? {
-                    ...slot,
-                    playerKey:
-                      "",
-                  }
-                : slot
-          )
-      );
-    }
-
-    setAssignedPositions(
-      (current) => ({
-        ...current,
-        [key]:
-          position,
-      })
-    );
-  }
 
   /* =======================================================
      TITULARES
@@ -510,11 +624,9 @@ export default function ShtCreator({
       assignedPositions,
     ]);
 
-  const startersCount =
-    selectedStarters.length;
-
   /* =======================================================
-     CLAVES DE TITULARES
+     ERROR CORREGIDO:
+     BenchSelector espera string[]
   ======================================================= */
 
   const startersKeys =
@@ -535,69 +647,100 @@ export default function ShtCreator({
 
   const pitchPlayers =
     useMemo(() => {
-      return selectedStarters
-        .map((player) => {
+      return selectedStarters.map(
+        (player) => {
           const key =
             getPlayerKey(
               player
             );
 
-          const position =
+          const assignedPosition =
             assignedPositions[
               key
             ];
 
-          if (!position) {
-            return null;
-          }
-
           return {
             player,
-            position,
-          };
-        })
-        .filter(
-          (
-            item
-          ): item is {
-            player: GlobalEsmsPlayer;
             position:
-              | "GK"
-              | "DF"
-              | "DM"
-              | "MF"
-              | "AM"
-              | "FW";
-          } =>
-            Boolean(item)
-        );
+              assignedPosition as Exclude<
+                AssignedPosition,
+                ""
+              >,
+          };
+        }
+      );
     }, [
       selectedStarters,
       assignedPositions,
     ]);
 
   /* =======================================================
-     BANQUILLO
+     BANQUILLO COMPLETO
   ======================================================= */
 
   const completedBench =
     useMemo(() => {
       return bench.filter(
         (slot) =>
-          slot.position &&
-          slot.playerKey
+          slot.position !==
+            "" &&
+          slot.playerKey !==
+            ""
       );
     }, [bench]);
 
-  const benchCount =
-    completedBench.length;
+  /* =======================================================
+     ASIGNAR POSICIÓN
+  ======================================================= */
+
+  function handleAssignedPosition(
+    player:
+      GlobalEsmsPlayer,
+    position:
+      AssignedPosition
+  ) {
+    const key =
+      getPlayerKey(
+        player
+      );
+
+    setAssignedPositions(
+      (previous) => ({
+        ...previous,
+
+        [key]:
+          position,
+      })
+    );
+
+    if (
+      position !== ""
+    ) {
+      setBench(
+        (previous) =>
+          previous.map(
+            (slot) =>
+              slot.playerKey ===
+              key
+                ? {
+                    ...slot,
+                    playerKey:
+                      "",
+                  }
+                : slot
+          )
+      );
+    }
+  }
 
   /* =======================================================
-     VALIDACIÓN
+     GENERAR
   ======================================================= */
 
   function handleGenerate() {
-    if (!selectedTeam) {
+    if (
+      !selectedTeam
+    ) {
       alert(
         "Selecciona un equipo."
       );
@@ -606,122 +749,47 @@ export default function ShtCreator({
     }
 
     if (
-      startersCount !== 11
+      selectedStarters.length !==
+      11
     ) {
       alert(
-        `Debes tener exactamente 11 titulares. Actualmente tienes ${startersCount}.`
-      );
-
-      setActiveTab(
-        "starters"
+        `Debes seleccionar exactamente 11 titulares. Actualmente tienes ${selectedStarters.length}.`
       );
 
       return;
     }
 
     const goalkeeperCount =
-      selectedStarters.filter(
-        (player) =>
-          assignedPositions[
-            getPlayerKey(
-              player
-            )
-          ] === "GK"
+      pitchPlayers.filter(
+        (item) =>
+          item.position ===
+          "GK"
       ).length;
 
     if (
-      goalkeeperCount !== 1
+      goalkeeperCount !==
+      1
     ) {
       alert(
-        `Debes tener exactamente 1 GK titular. Actualmente tienes ${goalkeeperCount}.`
-      );
-
-      setActiveTab(
-        "starters"
+        "Debes seleccionar exactamente 1 portero titular."
       );
 
       return;
     }
 
     if (
-      benchCount !== 5
+      completedBench.length !==
+      5
     ) {
       alert(
-        `Debes completar los 5 suplentes obligatorios. Actualmente tienes ${benchCount}/5.`
-      );
-
-      setActiveTab(
-        "subs"
-      );
-
-      return;
-    }
-
-    const incompleteBench =
-      bench.some(
-        (slot) =>
-          Boolean(
-            slot.playerKey
-          ) !==
-          Boolean(
-            slot.position
-          )
-      );
-
-    if (
-      incompleteBench
-    ) {
-      alert(
-        "Cada suplente debe tener jugador y posición."
-      );
-
-      setActiveTab(
-        "subs"
+        `Debes completar los 5 jugadores del banquillo. Actualmente tienes ${completedBench.length}.`
       );
 
       return;
     }
 
     alert(
-      `Alineación válida:
-11 titulares
-5 suplentes
-${changes.length} cambios configurados
-
-El siguiente paso será generar el .sht real.`
-    );
-  }
-
-  /* =======================================================
-     MEDIA + EXP
-  ======================================================= */
-
-  function formatSkill(
-    rating: number,
-    exp: number
-  ) {
-    return (
-      <span className="whitespace-nowrap">
-        <span
-          className={
-            rating >= 16
-              ? "font-bold text-emerald-400"
-              : "text-white"
-          }
-        >
-          {rating}
-        </span>
-
-        <span
-          className="
-            ml-1
-            text-[11px]
-            text-slate-400
-          "
-        >
-          ({exp})
-        </span>
-      </span>
+      `Alineación válida.\n\nEquipo: ${selectedTeam}\nTáctica: ${tacticalStyle}\nTitulares: ${selectedStarters.length}\nSuplentes: ${completedBench.length}\nEstrategias: ${strategies.length}\n\nEl siguiente paso será generar el archivo .sht real.`
     );
   }
 
@@ -748,898 +816,1087 @@ El siguiente paso será generar el .sht real.`
           PANEL IZQUIERDO
       =================================================== */}
 
-      <section
+      <div
         className="
           min-w-0
           border-b
           border-slate-800
-          p-3
-
-          sm:p-4
 
           xl:border-b-0
           xl:border-r
-          xl:p-5
         "
       >
-        {/* =================================================
-            CONTROLES SUPERIORES
-        ================================================= */}
+        {/* CONTROLES */}
 
         <div
           className="
-            grid
-            grid-cols-1
-            gap-3
-
-            sm:grid-cols-2
-
-            lg:grid-cols-[1.4fr_0.8fr_auto_auto]
+            border-b
+            border-slate-800
+            p-4
           "
         >
-          {/* EQUIPO */}
-
-          <select
-            value={
-              selectedTeam
-            }
-            onChange={(
-              event
-            ) =>
-              setSelectedTeam(
-                event.target
-                  .value
-              )
-            }
+          <div
             className="
-              min-w-0
-              rounded-lg
-              border
-              border-slate-700
-              bg-slate-800
-              px-3
-              py-2.5
-              text-sm
-              text-white
-              outline-none
-              focus:border-blue-500
+              grid
+              grid-cols-1
+              gap-3
+
+              sm:grid-cols-2
+
+              lg:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_auto_auto]
+              lg:items-end
             "
           >
-            <option value="">
-              Equipo
-            </option>
+            {/* EQUIPO */}
 
-            {teams.map(
-              (team) => (
-                <option
-                  key={
-                    team.code
-                  }
-                  value={
-                    team.code
-                  }
-                >
-                  {team.name}
+            <div>
+              <label
+                className="
+                  mb-1.5
+                  block
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-slate-500
+                "
+              >
+                Equipo
+              </label>
+
+              <select
+                value={
+                  selectedTeam
+                }
+                onChange={(
+                  event
+                ) =>
+                  setSelectedTeam(
+                    event.target
+                      .value
+                  )
+                }
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-slate-700
+                  bg-slate-950
+                  px-3
+                  py-2.5
+                  text-sm
+                  text-white
+                  outline-none
+
+                  focus:border-blue-500
+                "
+              >
+                <option value="">
+                  Selecciona un equipo
                 </option>
-              )
-            )}
-          </select>
 
-          {/* TÁCTICA INICIAL */}
+                {teams.map(
+                  (team) => (
+                    <option
+                      key={
+                        team.code
+                      }
+                      value={
+                        team.code
+                      }
+                    >
+                      {
+                        team.name
+                      }{" "}
+                      (
+                      {
+                        team.code
+                      }
+                      )
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
 
-          <select
-            value={
-              tacticalStyle
-            }
-            onChange={(
-              event
-            ) =>
-              setTacticalStyle(
-                event.target
-                  .value as TacticalStyle
-              )
-            }
-            className="
-              min-w-0
-              rounded-lg
-              border
-              border-slate-700
-              bg-slate-800
-              px-3
-              py-2.5
-              text-sm
-              text-white
-              outline-none
-              focus:border-blue-500
-            "
-          >
-            <option value="N">
-              N
-            </option>
+            {/* TÁCTICA */}
 
-            <option value="A">
-              A
-            </option>
+            <div>
+              <label
+                className="
+                  mb-1.5
+                  block
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-slate-500
+                "
+              >
+                Táctica inicial
+              </label>
 
-            <option value="C">
-              C
-            </option>
+              <select
+                value={
+                  tacticalStyle
+                }
+                onChange={(
+                  event
+                ) =>
+                  setTacticalStyle(
+                    event.target
+                      .value as TacticalStyle
+                  )
+                }
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-slate-700
+                  bg-slate-950
+                  px-3
+                  py-2.5
+                  text-sm
+                  text-white
+                  outline-none
 
-            <option value="D">
-              D
-            </option>
+                  focus:border-blue-500
+                "
+              >
+                {TACTICS.map(
+                  (tactic) => (
+                    <option
+                      key={
+                        tactic.value
+                      }
+                      value={
+                        tactic.value
+                      }
+                    >
+                      {
+                        tactic.label
+                      }
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
 
-            <option value="E">
-              E
-            </option>
+            {/* OCULTAR BAJAS */}
 
-            <option value="L">
-              L
-            </option>
+            <label
+              className="
+                flex
+                min-h-[42px]
+                cursor-pointer
+                items-center
+                gap-2
+                rounded-lg
+                border
+                border-slate-700
+                bg-slate-950
+                px-3
+                text-sm
+                text-slate-300
+              "
+            >
+              <input
+                type="checkbox"
+                checked={
+                  hideUnavailable
+                }
+                onChange={(
+                  event
+                ) =>
+                  setHideUnavailable(
+                    event.target
+                      .checked
+                  )
+                }
+                className="
+                  h-4
+                  w-4
+                  accent-blue-500
+                "
+              />
 
-            <option value="P">
-              P
-            </option>
-          </select>
+              Ocultar bajas
+            </label>
 
-          {/* OCULTAR BAJAS */}
+            {/* GENERAR */}
 
-          <label
-            className="
-              flex
-              cursor-pointer
-              items-center
-              justify-center
-              gap-2
-              rounded-lg
-              border
-              border-slate-700
-              bg-slate-800
-              px-4
-              py-2.5
-              text-sm
-              text-white
-            "
-          >
-            <input
-              type="checkbox"
-              checked={
-                hideUnavailable
+            <button
+              type="button"
+              onClick={
+                handleGenerate
               }
-              onChange={(
-                event
-              ) =>
-                setHideUnavailable(
-                  event.target
-                    .checked
-                )
-              }
-            />
+              className="
+                min-h-[42px]
+                rounded-lg
+                bg-blue-600
+                px-5
+                text-sm
+                font-bold
+                text-white
+                transition
 
-            Ocultar bajas
-          </label>
-
-          {/* GENERAR */}
-
-          <button
-            type="button"
-            onClick={
-              handleGenerate
-            }
-            disabled={
-              !selectedTeam
-            }
-            className="
-              rounded-lg
-              bg-emerald-500
-              px-5
-              py-2.5
-              text-sm
-              font-bold
-              text-white
-              transition
-
-              hover:bg-emerald-400
-
-              disabled:cursor-not-allowed
-              disabled:opacity-40
-            "
-          >
-            Generar
-          </button>
+                hover:bg-blue-500
+              "
+            >
+              Generar
+            </button>
+          </div>
         </div>
 
-        {/* =================================================
-            RESUMEN
-        ================================================= */}
+        {/* SIN EQUIPO */}
+
+        {!selectedTeam && (
+          <div
+            className="
+              flex
+              min-h-[500px]
+              items-center
+              justify-center
+              p-8
+              text-center
+            "
+          >
+            <div>
+              <div
+                className="
+                  text-lg
+                  font-bold
+                  text-white
+                "
+              >
+                Selecciona un equipo
+              </div>
+
+              <p
+                className="
+                  mt-2
+                  max-w-md
+                  text-sm
+                  text-slate-500
+                "
+              >
+                Selecciona una plantilla
+                para comenzar a crear
+                la alineación.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* PLANTILLA */}
 
         {selectedTeam && (
           <div
             className="
-              mt-4
-              flex
-              flex-wrap
-              gap-x-5
-              gap-y-2
-              text-xs
-              text-slate-500
-
-              sm:text-sm
+              overflow-x-auto
             "
           >
-            <span>
-              {
-                teamPlayers.length
-              }{" "}
-              jugadores
-            </span>
-
-            <span>
-              Titulares:{" "}
-              <strong
-                className={
-                  startersCount ===
-                  11
-                    ? "text-emerald-400"
-                    : "text-white"
-                }
-              >
-                {
-                  startersCount
-                }
-                /11
-              </strong>
-            </span>
-
-            <span>
-              Suplentes:{" "}
-              <strong
-                className={
-                  benchCount ===
-                  5
-                    ? "text-emerald-400"
-                    : "text-white"
-                }
-              >
-                {
-                  benchCount
-                }
-                /5
-              </strong>
-            </span>
-
-            <span>
-              Cambios:{" "}
-              <strong className="text-white">
-                {
-                  changes.length
-                }
-              </strong>
-            </span>
-
-            <span>
-              Táctica:{" "}
-              <strong className="text-white">
-                {
-                  tacticalStyle
-                }
-              </strong>
-            </span>
-          </div>
-        )}
-
-        {/* =================================================
-            TABLA
-        ================================================= */}
-
-        <div
-          className="
-            mt-4
-            w-full
-            overflow-x-auto
-            rounded-lg
-            border
-            border-slate-800
-          "
-        >
-          <table
-            className="
-              w-full
-              min-w-[940px]
-              text-sm
-            "
-          >
-            <thead
+            <table
               className="
-                bg-slate-800
-                text-slate-200
+                w-full
+                min-w-[940px]
+                border-collapse
               "
             >
-              <tr>
-                <th className="px-3 py-3 text-center">
-                  Sel.
-                </th>
+              <thead
+                className="
+                  bg-slate-950/80
+                "
+              >
+                <tr
+                  className="
+                    border-b
+                    border-slate-800
+                  "
+                >
+                  <TableHeader>
+                    Sel.
+                  </TableHeader>
 
-                <th className="px-3 py-3 text-center">
-                  Pos
-                </th>
+                  <TableHeader>
+                    Pos
+                  </TableHeader>
 
-                <th className="px-3 py-3 text-left">
-                  Nombre
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  GK
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  DF
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  MF
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  FW
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  Sus
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  Inj
-                </th>
-
-                <th className="px-3 py-3 text-center">
-                  Fit
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {!selectedTeam && (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className="
-                      px-4
-                      py-16
-                      text-center
-                      text-slate-600
-                    "
+                  <TableHeader
+                    align="left"
                   >
-                    Selecciona un equipo.
-                  </td>
+                    Nombre
+                  </TableHeader>
+
+                  <TableHeader>
+                    GK
+                  </TableHeader>
+
+                  <TableHeader>
+                    DF
+                  </TableHeader>
+
+                  <TableHeader>
+                    MF
+                  </TableHeader>
+
+                  <TableHeader>
+                    FW
+                  </TableHeader>
+
+                  <TableHeader>
+                    Sus
+                  </TableHeader>
+
+                  <TableHeader>
+                    Inj
+                  </TableHeader>
+
+                  <TableHeader>
+                    Fit
+                  </TableHeader>
                 </tr>
-              )}
+              </thead>
 
-              {selectedTeam &&
-                visiblePlayers.length ===
-                  0 && (
-                  <tr>
-                    <td
-                      colSpan={
-                        10
-                      }
-                      className="
-                        px-4
-                        py-16
-                        text-center
-                        text-slate-600
-                      "
-                    >
-                      No hay jugadores disponibles.
-                    </td>
-                  </tr>
-                )}
+              <tbody>
+                {visiblePlayers.map(
+                  (player) => {
+                    const key =
+                      getPlayerKey(
+                        player
+                      );
 
-              {visiblePlayers.map(
-                (player) => {
-                  const naturalPosition =
-                    resolvePosition(
-                      player
-                    );
+                    const naturalPosition =
+                      resolvePosition(
+                        player
+                      );
 
-                  const key =
-                    getPlayerKey(
-                      player
-                    );
+                    const assignedPosition =
+                      assignedPositions[
+                        key
+                      ] ?? "";
 
-                  const assigned =
-                    assignedPositions[
-                      key
-                    ] ?? "";
-
-                  return (
-                    <tr
-                      key={key}
-                      className="
-                        border-t
-                        border-slate-800
-                        transition
-                        hover:bg-slate-800/50
-                      "
-                    >
-                      {/* SEL */}
-
-                      <td
+                    return (
+                      <tr
+                        key={
+                          key
+                        }
                         className="
-                          px-3
-                          py-2
-                          text-center
+                          border-b
+                          border-slate-800/70
+                          transition
+
+                          hover:bg-slate-800/40
                         "
                       >
-                        <select
-                          value={
-                            assigned
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            handleAssignedPosition(
-                              player,
-                              event
-                                .target
-                                .value as AssignedPosition
-                            )
-                          }
-                          className={`
-                            rounded-md
-                            border
-                            border-slate-700
+                        {/* SELECCIÓN */}
+
+                        <td
+                          className="
                             px-2
-                            py-1.5
+                            py-2
+                            text-center
+                          "
+                        >
+                          <select
+                            value={
+                              assignedPosition
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              handleAssignedPosition(
+                                player,
+                                event
+                                  .target
+                                  .value as AssignedPosition
+                              )
+                            }
+                            className={`
+                              w-[68px]
+                              rounded-md
+                              border
+                              px-2
+                              py-1.5
+                              text-xs
+                              font-bold
+                              outline-none
+
+                              ${getPositionClass(
+                                assignedPosition
+                              )}
+                            `}
+                          >
+                            {ASSIGNED_POSITIONS.map(
+                              (
+                                option
+                              ) => (
+                                <option
+                                  key={
+                                    option.value ||
+                                    "none"
+                                  }
+                                  value={
+                                    option.value
+                                  }
+                                  className="
+                                    bg-slate-950
+                                    text-white
+                                  "
+                                >
+                                  {
+                                    option.label
+                                  }
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </td>
+
+                        {/* POSICIÓN NATURAL */}
+
+                        <td
+                          className="
+                            px-2
+                            py-2
+                            text-center
+                          "
+                        >
+                          <span
+                            className={`
+                              inline-flex
+                              min-w-[42px]
+                              items-center
+                              justify-center
+                              rounded-md
+                              border
+                              px-2
+                              py-1
+                              text-xs
+                              font-bold
+
+                              ${getPositionClass(
+                                naturalPosition
+                              )}
+                            `}
+                          >
+                            {
+                              naturalPosition
+                            }
+                          </span>
+                        </td>
+
+                        {/* NOMBRE CLICABLE */}
+
+                        <td
+                          className="
+                            px-3
+                            py-2
+                            text-left
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              items-center
+                              gap-1
+                            "
+                          >
+                            <PlayerNameLink
+                              playerId={
+                                player.playerId
+                              }
+                              name={
+                                player.name
+                              }
+                              className="
+                                font-semibold
+                                text-slate-100
+                              "
+                            />
+
+                            <span
+                              className="
+                                text-xs
+                                text-slate-500
+                              "
+                            >
+                              (
+                              {
+                                player.age
+                              }
+                              )
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* GK */}
+
+                        <td
+                          className="
+                            px-2
+                            py-2
+                            text-center
+                            text-sm
+                          "
+                        >
+                          <span
+                            className={
+                              getRatingClass(
+                                player.st
+                              )
+                            }
+                          >
+                            {
+                              player.st
+                            }
+                          </span>
+
+                          <span
+                            className="
+                              ml-1
+                              text-xs
+                              text-slate-500
+                            "
+                          >
+                            (
+                            {
+                              player.kab
+                            }
+                            )
+                          </span>
+                        </td>
+
+                        {/* DF */}
+
+                        <td
+                          className="
+                            px-2
+                            py-2
+                            text-center
+                            text-sm
+                          "
+                        >
+                          <span
+                            className={
+                              getRatingClass(
+                                player.tk
+                              )
+                            }
+                          >
+                            {
+                              player.tk
+                            }
+                          </span>
+
+                          <span
+                            className="
+                              ml-1
+                              text-xs
+                              text-slate-500
+                            "
+                          >
+                            (
+                            {
+                              player.tab
+                            }
+                            )
+                          </span>
+                        </td>
+
+                        {/* MF */}
+
+                        <td
+                          className="
+                            px-2
+                            py-2
+                            text-center
+                            text-sm
+                          "
+                        >
+                          <span
+                            className={
+                              getRatingClass(
+                                player.ps
+                              )
+                            }
+                          >
+                            {
+                              player.ps
+                            }
+                          </span>
+
+                          <span
+                            className="
+                              ml-1
+                              text-xs
+                              text-slate-500
+                            "
+                          >
+                            (
+                            {
+                              player.pab
+                            }
+                            )
+                          </span>
+                        </td>
+
+                        {/* FW */}
+
+                        <td
+                          className="
+                            px-2
+                            py-2
+                            text-center
+                            text-sm
+                          "
+                        >
+                          <span
+                            className={
+                              getRatingClass(
+                                player.sh
+                              )
+                            }
+                          >
+                            {
+                              player.sh
+                            }
+                          </span>
+
+                          <span
+                            className="
+                              ml-1
+                              text-xs
+                              text-slate-500
+                            "
+                          >
+                            (
+                            {
+                              player.sab
+                            }
+                            )
+                          </span>
+                        </td>
+
+                        {/* SUSPENSIÓN */}
+
+                        <td
+                          className={`
+                            px-2
+                            py-2
+                            text-center
                             text-sm
                             font-semibold
-                            outline-none
 
                             ${
-                              assigned
-                                ? ASSIGNED_POSITION_COLORS[
-                                    assigned
-                                  ]
-                                : "bg-slate-900 text-white"
+                              player.sus >
+                              0
+                                ? "text-red-400"
+                                : "text-slate-500"
                             }
                           `}
                         >
-                          <option
-                            value=""
-                            className="bg-slate-900 text-white"
-                          >
-                            -
-                          </option>
+                          {
+                            player.sus
+                          }
+                        </td>
 
-                          <option
-                            value="GK"
-                            className="bg-slate-900 text-white"
-                          >
-                            GK
-                          </option>
+                        {/* LESIÓN */}
 
-                          <option
-                            value="DF"
-                            className="bg-slate-900 text-white"
-                          >
-                            DF
-                          </option>
-
-                          <option
-                            value="DM"
-                            className="bg-slate-900 text-white"
-                          >
-                            DM
-                          </option>
-
-                          <option
-                            value="MF"
-                            className="bg-slate-900 text-white"
-                          >
-                            MF
-                          </option>
-
-                          <option
-                            value="AM"
-                            className="bg-slate-900 text-white"
-                          >
-                            AM
-                          </option>
-
-                          <option
-                            value="FW"
-                            className="bg-slate-900 text-white"
-                          >
-                            FW
-                          </option>
-                        </select>
-                      </td>
-
-                      {/* POS NATURAL */}
-
-                      <td className="p-0">
-                        <div
+                        <td
                           className={`
-                            min-w-16
-                            px-4
-                            py-3
+                            px-2
+                            py-2
                             text-center
+                            text-sm
+                            font-semibold
+
+                            ${
+                              player.inj >
+                              0
+                                ? "text-red-400"
+                                : "text-slate-500"
+                            }
+                          `}
+                        >
+                          {
+                            player.inj
+                          }
+                        </td>
+
+                        {/* FIT */}
+
+                        <td
+                          className={`
+                            px-2
+                            py-2
+                            text-center
+                            text-sm
                             font-bold
 
                             ${
-                              POSITION_COLORS[
-                                naturalPosition
-                              ]
+                              player.fit >=
+                              90
+                                ? "text-emerald-400"
+                                : player.fit >=
+                                    75
+                                  ? "text-yellow-300"
+                                  : "text-red-400"
                             }
                           `}
                         >
                           {
-                            naturalPosition
+                            player.fit
                           }
-                        </div>
-                      </td>
+                        </td>
+                      </tr>
+                    );
+                  }
+                )}
+              </tbody>
+            </table>
 
-                      {/* NOMBRE */}
-
-                      <td
-                        className="
-                          whitespace-nowrap
-                          px-3
-                          py-3
-                          text-white
-                        "
-                      >
-                        <span className="font-medium">
-                          {
-                            player.name
-                          }
-                        </span>
-
-                        <span
-                          className="
-                            ml-2
-                            text-xs
-                            text-slate-400
-                          "
-                        >
-                          (
-                          {
-                            player.age
-                          }
-                          )
-                        </span>
-                      </td>
-
-                      {/* GK */}
-
-                      <td className="px-3 py-3 text-center">
-                        {formatSkill(
-                          player.st,
-                          player.kab
-                        )}
-                      </td>
-
-                      {/* DF */}
-
-                      <td className="px-3 py-3 text-center">
-                        {formatSkill(
-                          player.tk,
-                          player.tab
-                        )}
-                      </td>
-
-                      {/* MF */}
-
-                      <td className="px-3 py-3 text-center">
-                        {formatSkill(
-                          player.ps,
-                          player.pab
-                        )}
-                      </td>
-
-                      {/* FW */}
-
-                      <td className="px-3 py-3 text-center">
-                        {formatSkill(
-                          player.sh,
-                          player.sab
-                        )}
-                      </td>
-
-                      {/* SUS */}
-
-                      <td
-                        className={`
-                          px-3
-                          py-3
-                          text-center
-                          font-semibold
-
-                          ${
-                            player.sus >
-                            0
-                              ? "text-red-400"
-                              : "text-slate-400"
-                          }
-                        `}
-                      >
-                        {
-                          player.sus
-                        }
-                      </td>
-
-                      {/* INJ */}
-
-                      <td
-                        className={`
-                          px-3
-                          py-3
-                          text-center
-                          font-semibold
-
-                          ${
-                            player.inj >
-                            0
-                              ? "text-orange-400"
-                              : "text-slate-400"
-                          }
-                        `}
-                      >
-                        {
-                          player.inj
-                        }
-                      </td>
-
-                      {/* FIT */}
-
-                      <td
-                        className={`
-                          px-3
-                          py-3
-                          text-center
-                          font-semibold
-
-                          ${
-                            player.fit <
-                            100
-                              ? "text-yellow-400"
-                              : "text-white"
-                          }
-                        `}
-                      >
-                        {
-                          player.fit
-                        }
-                      </td>
-                    </tr>
-                  );
-                }
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            {visiblePlayers.length ===
+              0 && (
+              <div
+                className="
+                  p-8
+                  text-center
+                  text-sm
+                  text-slate-500
+                "
+              >
+                No hay jugadores
+                disponibles con los
+                filtros actuales.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ===================================================
           PANEL DERECHO
       =================================================== */}
 
-      <section
+      <div
         className="
           min-w-0
-          bg-slate-950/50
+          bg-slate-950/30
         "
       >
-        {/* =================================================
-            PESTAÑAS
-        ================================================= */}
+        {/* TABS */}
 
         <div
           className="
             grid
             grid-cols-3
-            gap-1
             border-b
             border-slate-800
-            p-2
           "
         >
-          {/* TITULARES */}
-
-          <button
-            type="button"
+          <TabButton
+            active={
+              activeTab ===
+              "starters"
+            }
+            activeClass="
+              border-blue-500
+              bg-blue-500/10
+              text-blue-300
+            "
             onClick={() =>
               setActiveTab(
                 "starters"
               )
             }
-            className={`
-              rounded-md
-              px-3
-              py-3
-              text-sm
-              font-bold
-              transition
-
-              ${
-                activeTab ===
-                "starters"
-                  ? "bg-blue-500 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-white"
-              }
-            `}
           >
             Titulares
-          </button>
+          </TabButton>
 
-          {/* SUPLENTES */}
-
-          <button
-            type="button"
+          <TabButton
+            active={
+              activeTab ===
+              "subs"
+            }
+            activeClass="
+              border-emerald-500
+              bg-emerald-500/10
+              text-emerald-300
+            "
             onClick={() =>
               setActiveTab(
                 "subs"
               )
             }
-            className={`
-              rounded-md
-              px-3
-              py-3
-              text-sm
-              font-bold
-              transition
-
-              ${
-                activeTab ===
-                "subs"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-white"
-              }
-            `}
           >
             Suplentes
-          </button>
+          </TabButton>
 
-          {/* CAMBIOS */}
-
-          <button
-            type="button"
+          <TabButton
+            active={
+              activeTab ===
+              "changes"
+            }
+            activeClass="
+              border-violet-500
+              bg-violet-500/10
+              text-violet-300
+            "
             onClick={() =>
               setActiveTab(
                 "changes"
               )
             }
-            className={`
-              rounded-md
-              px-3
-              py-3
-              text-sm
-              font-bold
-              transition
-
-              ${
-                activeTab ===
-                "changes"
-                  ? "bg-violet-500 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-white"
-              }
-            `}
           >
             Cambios
-          </button>
+          </TabButton>
         </div>
 
-        {/* =================================================
-            TITULARES
-        ================================================= */}
+        {/* CONTENIDO */}
 
-        {activeTab ===
-          "starters" && (
-          <div className="p-5">
+        <div
+          className="
+            p-4
+
+            sm:p-5
+          "
+        >
+          {!selectedTeam && (
             <div
               className="
                 flex
+                min-h-[500px]
                 items-center
-                justify-between
-                gap-3
+                justify-center
+                text-center
               "
             >
               <div>
-                <h2
+                <div
                   className="
-                    text-xl
+                    text-lg
                     font-bold
-                    text-blue-400
+                    text-slate-300
                   "
                 >
-                  Alineación
-                </h2>
+                  Creador de alineaciones
+                </div>
 
                 <p
                   className="
-                    mt-1
-                    text-xs
-                    text-slate-500
+                    mt-2
+                    text-sm
+                    text-slate-600
                   "
                 >
-                  Los jugadores aparecen automáticamente según la posición seleccionada.
+                  Selecciona un equipo
+                  para comenzar.
                 </p>
               </div>
-
-              <span
-                className={`
-                  shrink-0
-                  rounded-full
-                  px-3
-                  py-1
-                  text-xs
-                  font-bold
-
-                  ${
-                    startersCount ===
-                    11
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-slate-800 text-slate-400"
-                  }
-                `}
-              >
-                {
-                  startersCount
-                }
-                /11
-              </span>
             </div>
+          )}
 
-            <div className="mt-5">
-              <FootballPitch
-                players={
-                  pitchPlayers
+          {selectedTeam &&
+            activeTab ===
+              "starters" && (
+              <>
+                <div
+                  className="
+                    mb-4
+                    flex
+                    flex-wrap
+                    items-center
+                    justify-between
+                    gap-3
+                  "
+                >
+                  <div>
+                    <h2
+                      className="
+                        font-bold
+                        text-white
+                      "
+                    >
+                      Titulares
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        text-slate-500
+                      "
+                    >
+                      Selecciona 11
+                      jugadores y asigna
+                      su posición.
+                    </p>
+                  </div>
+
+                  <div
+                    className={`
+                      rounded-lg
+                      border
+                      px-3
+                      py-1.5
+                      text-sm
+                      font-bold
+
+                      ${
+                        selectedStarters.length ===
+                        11
+                          ? `
+                            border-emerald-500/40
+                            bg-emerald-500/10
+                            text-emerald-400
+                          `
+                          : `
+                            border-slate-700
+                            bg-slate-900
+                            text-slate-400
+                          `
+                      }
+                    `}
+                  >
+                    {
+                      selectedStarters.length
+                    }
+                    /11
+                  </div>
+                </div>
+
+                <FootballPitch
+                  players={
+                    pitchPlayers
+                  }
+                />
+              </>
+            )}
+
+          {selectedTeam &&
+            activeTab ===
+              "subs" && (
+              <BenchSelector
+                teamPlayers={
+                  teamPlayers
+                }
+                startersKeys={
+                  startersKeys
+                }
+                bench={
+                  bench
+                }
+                onChange={
+                  setBench
                 }
               />
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* =================================================
-            SUPLENTES
-        ================================================= */}
-
-        {activeTab ===
-          "subs" && (
-          <div className="p-5">
-            <BenchSelector
-              teamPlayers={
-                teamPlayers
-              }
-              startersKeys={
-                startersKeys
-              }
-              bench={bench}
-              onChange={
-                setBench
-              }
-            />
-          </div>
-        )}
-
-        {/* =================================================
-            CAMBIOS
-        ================================================= */}
-
-        {activeTab ===
-          "changes" && (
-          <div className="p-5">
-            <ChangeBuilder
-              changes={
-                changes
-              }
-              onChange={
-                setChanges
-              }
-            />
-          </div>
-        )}
-      </section>
+          {selectedTeam &&
+            activeTab ===
+              "changes" && (
+              <StrategyBuilder
+                strategies={
+                  strategies
+                }
+                onChange={
+                  setStrategies
+                }
+              />
+            )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+/* =========================================================
+   TABLE HEADER
+========================================================= */
+
+function TableHeader({
+  children,
+  align = "center",
+}: {
+  children:
+    React.ReactNode;
+
+  align?:
+    | "left"
+    | "center";
+}) {
+  return (
+    <th
+      className={`
+        whitespace-nowrap
+        px-2
+        py-3
+        text-xs
+        font-semibold
+        uppercase
+        tracking-wide
+        text-slate-500
+
+        ${
+          align === "left"
+            ? "text-left"
+            : "text-center"
+        }
+      `}
+    >
+      {children}
+    </th>
+  );
+}
+
+/* =========================================================
+   TAB
+========================================================= */
+
+function TabButton({
+  children,
+  active,
+  activeClass,
+  onClick,
+}: {
+  children:
+    React.ReactNode;
+
+  active: boolean;
+
+  activeClass: string;
+
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className={`
+        border-b-2
+        px-2
+        py-4
+        text-sm
+        font-bold
+        transition
+
+        ${
+          active
+            ? activeClass
+            : `
+              border-transparent
+              text-slate-500
+
+              hover:bg-slate-900
+              hover:text-slate-300
+            `
+        }
+      `}
+    >
+      {children}
+    </button>
   );
 }

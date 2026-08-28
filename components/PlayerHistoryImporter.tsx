@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useState,
+} from "react";
 
 type ImportError = {
   player: string;
@@ -10,16 +12,28 @@ type ImportError = {
 
 type ImportResult = {
   total: number;
+
+  newPlayers: number;
+
   saved: number;
+
   unchanged: number;
+
+  transfers: number;
+
+  events: number;
+
   errors: number;
-  errorDetails: ImportError[];
+
+  errorDetails:
+    ImportError[];
 };
 
 type ImportResponse = {
   ok?: boolean;
 
-  result?: ImportResult;
+  result?:
+    ImportResult;
 
   error?:
     | string
@@ -31,28 +45,39 @@ type ImportResponse = {
       };
 };
 
+/* =========================================================
+   ERROR
+========================================================= */
+
 function formatServerError(
-  error: ImportResponse["error"]
-): string {
+  error:
+    ImportResponse["error"]
+) {
   if (!error) {
     return "Error desconocido";
   }
 
   if (
-    typeof error === "string"
+    typeof error ===
+    "string"
   ) {
     return error;
   }
 
-  const parts: string[] = [];
+  const parts: string[] =
+    [];
 
-  if (error.message) {
+  if (
+    error.message
+  ) {
     parts.push(
       error.message
     );
   }
 
-  if (error.details) {
+  if (
+    error.details
+  ) {
     parts.push(
       `Detalles: ${error.details}`
     );
@@ -70,44 +95,52 @@ function formatServerError(
     );
   }
 
-  if (parts.length > 0) {
-    return parts.join(
-      " | "
-    );
-  }
-
-  try {
-    return JSON.stringify(
-      error
-    );
-  } catch {
-    return "Error desconocido";
-  }
+  return (
+    parts.join(" | ") ||
+    "Error desconocido"
+  );
 }
 
-export default function PlayerHistoryImporter() {
-  const [loading, setLoading] =
-    useState(false);
+/* =========================================================
+   COMPONENTE
+========================================================= */
 
-  const [result, setResult] =
+export default function PlayerHistoryImporter() {
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    result,
+    setResult,
+  ] =
     useState<ImportResult | null>(
       null
     );
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   async function handleImport() {
     setLoading(true);
+
     setError("");
+
     setResult(null);
+
+    const startedAt =
+      Date.now();
 
     try {
       const response =
         await fetch(
           "/api/player-history/import",
           {
-            method: "POST",
+            method:
+              "POST",
 
             headers: {
               Accept:
@@ -119,7 +152,8 @@ export default function PlayerHistoryImporter() {
       const rawResponse =
         await response.text();
 
-      let data: ImportResponse;
+      let data:
+        ImportResponse;
 
       try {
         data =
@@ -128,14 +162,16 @@ export default function PlayerHistoryImporter() {
           ) as ImportResponse;
       } catch {
         throw new Error(
-          `El servidor devolvió una respuesta no válida (${response.status}): ${rawResponse.slice(
+          `Respuesta no válida del servidor (${response.status}): ${rawResponse.slice(
             0,
-            1000
+            800
           )}`
         );
       }
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         throw new Error(
           formatServerError(
             data.error
@@ -151,24 +187,34 @@ export default function PlayerHistoryImporter() {
         );
       }
 
-      if (!data.result) {
+      if (
+        !data.result
+      ) {
         throw new Error(
-          "El servidor no devolvió el resultado de la importación."
+          "El servidor no devolvió el resultado."
         );
       }
 
       setResult(
         data.result
       );
+
+      const seconds =
+        (
+          (Date.now() -
+            startedAt) /
+          1000
+        ).toFixed(1);
+
+      console.log(
+        `Historial actualizado en ${seconds}s`
+      );
     } catch (
       caughtError
     ) {
-      console.error(
-        caughtError
-      );
-
       setError(
-        caughtError instanceof Error
+        caughtError instanceof
+          Error
           ? caughtError.message
           : String(
               caughtError
@@ -218,7 +264,7 @@ export default function PlayerHistoryImporter() {
               text-slate-400
             "
           >
-            Guarda el estado actual de todas las plantillas.
+            Compara las plantillas actuales con el último registro.
           </p>
         </div>
 
@@ -233,7 +279,7 @@ export default function PlayerHistoryImporter() {
           className="
             rounded-lg
             bg-blue-500
-            px-4
+            px-5
             py-2.5
             text-sm
             font-bold
@@ -272,8 +318,8 @@ export default function PlayerHistoryImporter() {
           >
             <div
               className="
-                h-4
-                w-4
+                h-5
+                w-5
                 animate-spin
                 rounded-full
                 border-2
@@ -286,11 +332,11 @@ export default function PlayerHistoryImporter() {
               <div
                 className="
                   text-sm
-                  font-semibold
+                  font-bold
                   text-blue-300
                 "
               >
-                Actualizando historial...
+                Actualizando historial
               </div>
 
               <div
@@ -300,7 +346,7 @@ export default function PlayerHistoryImporter() {
                   text-slate-500
                 "
               >
-                Leyendo plantillas y comparando jugadores.
+                Dropbox → comparación → Supabase
               </div>
             </div>
           </div>
@@ -316,13 +362,22 @@ export default function PlayerHistoryImporter() {
               grid-cols-2
               gap-3
 
-              sm:grid-cols-4
+              md:grid-cols-4
+
+              xl:grid-cols-7
             "
           >
             <Stat
               label="Jugadores"
               value={
                 result.total
+              }
+            />
+
+            <Stat
+              label="Nuevos"
+              value={
+                result.newPlayers
               }
             />
 
@@ -341,12 +396,46 @@ export default function PlayerHistoryImporter() {
             />
 
             <Stat
+              label="Transferencias"
+              value={
+                result.transfers
+              }
+            />
+
+            <Stat
+              label="Eventos"
+              value={
+                result.events
+              }
+            />
+
+            <Stat
               label="Errores"
               value={
                 result.errors
               }
             />
           </div>
+
+          {result.errors ===
+            0 && (
+            <div
+              className="
+                mt-4
+                rounded-lg
+                border
+                border-emerald-900/50
+                bg-emerald-950/20
+                px-4
+                py-3
+                text-sm
+                font-medium
+                text-emerald-400
+              "
+            >
+              ✓ Historial actualizado correctamente.
+            </div>
+          )}
 
           {result
             .errorDetails
@@ -362,98 +451,62 @@ export default function PlayerHistoryImporter() {
                 bg-red-950/20
               "
             >
-              <div
-                className="
-                  border-b
-                  border-red-900/60
-                  px-4
-                  py-3
-                "
-              >
-                <h3
-                  className="
-                    font-bold
-                    text-red-400
-                  "
-                >
-                  Errores de importación
-                </h3>
+              {result
+                .errorDetails
+                .map(
+                  (
+                    item,
+                    index
+                  ) => (
+                    <div
+                      key={`${item.team}:${item.player}:${index}`}
+                      className="
+                        border-b
+                        border-red-900/40
+                        p-4
 
-                <p
-                  className="
-                    mt-1
-                    text-xs
-                    text-red-300/60
-                  "
-                >
-                  Mostrando los primeros{" "}
-                  {
-                    result
-                      .errorDetails
-                      .length
-                  }{" "}
-                  errores.
-                </p>
-              </div>
-
-              <div
-                className="
-                  divide-y
-                  divide-red-900/40
-                "
-              >
-                {result
-                  .errorDetails
-                  .map(
-                    (
-                      item,
-                      index
-                    ) => (
+                        last:border-b-0
+                      "
+                    >
                       <div
-                        key={`${item.team}:${item.player}:${index}`}
-                        className="p-4"
+                        className="
+                          font-semibold
+                          text-white
+                        "
                       >
-                        <div
-                          className="
-                            font-semibold
-                            text-white
-                          "
-                        >
-                          {
-                            item.player
-                          }
+                        {
+                          item.player
+                        }
 
-                          <span
-                            className="
-                              ml-2
-                              text-xs
-                              text-slate-500
-                            "
-                          >
-                            {
-                              item.team
-                            }
-                          </span>
-                        </div>
-
-                        <code
+                        <span
                           className="
-                            mt-2
-                            block
-                            whitespace-pre-wrap
-                            break-words
+                            ml-2
                             text-xs
-                            text-red-300
+                            text-slate-500
                           "
                         >
                           {
-                            item.error
+                            item.team
                           }
-                        </code>
+                        </span>
                       </div>
-                    )
-                  )}
-              </div>
+
+                      <code
+                        className="
+                          mt-2
+                          block
+                          break-words
+                          text-xs
+                          text-red-300
+                        "
+                      >
+                        {
+                          item.error
+                        }
+                      </code>
+                    </div>
+                  )
+                )}
             </div>
           )}
         </>
@@ -483,7 +536,6 @@ export default function PlayerHistoryImporter() {
             className="
               mt-2
               block
-              whitespace-pre-wrap
               break-words
               text-sm
               text-red-300
@@ -497,11 +549,16 @@ export default function PlayerHistoryImporter() {
   );
 }
 
+/* =========================================================
+   TARJETA
+========================================================= */
+
 function Stat({
   label,
   value,
 }: {
   label: string;
+
   value: number;
 }) {
   return (

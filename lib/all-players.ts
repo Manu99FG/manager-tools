@@ -1,55 +1,218 @@
-import { getDropboxClient } from "@/lib/dropbox";
-import { parseEsmsPlantilla, type EsmsPlayer } from "@/lib/parser-esms";
-import { getPlantillasFiles } from "@/lib/plantillas";
-import { getClubName } from "@/lib/club-names";
+import {
+  getPlantillasFiles,
+} from "@/lib/plantillas";
 
-export type GlobalEsmsPlayer = EsmsPlayer & {
-  teamCode: string;
-  teamName: string;
+import {
+  getDropboxClient,
+} from "@/lib/dropbox";
+
+import {
+  parseEsmsPlantilla,
+  type EsmsPlayer,
+} from "@/lib/parser-esms";
+
+import {
+  getPlayerIdMap,
+  getPlayerIdentityKey,
+} from "@/lib/player-history";
+
+/* =========================================================
+   TIPO GLOBAL
+========================================================= */
+
+export type GlobalEsmsPlayer =
+  EsmsPlayer & {
+    teamCode: string;
+    teamName: string;
+
+    /*
+     * UUID permanente del jugador
+     * guardado en Supabase.
+     */
+    playerId:
+      | string
+      | null;
+  };
+
+type GetAllPlayersOptions = {
+  includePlayerIds?:
+    boolean;
 };
 
-export async function getAllPlayers(): Promise<GlobalEsmsPlayer[]> {
-  const teams = await getPlantillasFiles();
+/* =========================================================
+   OBTENER TODOS LOS JUGADORES
+========================================================= */
 
-  const dbx = getDropboxClient();
+export async function getAllPlayers(
+  options: GetAllPlayersOptions = {}
+): Promise<
+  GlobalEsmsPlayer[]
+> {
+  const {
+    includePlayerIds = true,
+  } = options;
 
-  const results = await Promise.all(
-    teams.map(async (team) => {
-      try {
-        const download = await dbx.filesDownload({
-          path: team.path,
-        });
+  const files =
+    await getPlantillasFiles();
 
-        const fileBlob = download.result.fileBlob;
+  const dbx =
+    getDropboxClient();
 
-        if (!fileBlob) {
-          console.warn(
-            `No se pudo descargar ${team.filename}`
+  /* =======================================================
+     DESCARGAR PLANTILLAS EN PARALELO
+  ======================================================= */
+
+  const rosterResults =
+    await Promise.all(
+      files.map(
+        async (file) => {
+          try {
+            /*
+             * file.path ya contiene la ruta
+             * completa dentro de Dropbox.
+             */
+            const response =
+              await dbx.filesDownload({
+                path:
+                  file.path,
+              });
+
+            const fileBlob =
+              response.result.fileBlob;
+
+            if (!fileBlob) {
+              console.error(
+                `No se pudo descargar la plantilla ${file.name}`
+              );
+
+              return [];
+            }
+
+            const text =
+              await fileBlob.text();
+
+            const parsed =
+              parseEsmsPlantilla(
+                text
+              );
+
+            return parsed.map(
+              (
+                player
+              ): GlobalEsmsPlayer => ({
+                ...player,
+
+                /*
+                 * En PlantillaFile:
+                 *
+                 * name = AJA, ARS, RMA...
+                 */
+                teamCode:
+                  file.name,
+
+                /*
+                 * Actualmente PlantillaFile
+                 * no contiene el nombre largo.
+                 *
+                 * De momento usamos también
+                 * el código.
+                 */
+                teamName:
+                  file.name,
+
+                playerId:
+                  null,
+              })
+            );
+          } catch (
+            error
+          ) {
+            console.error(
+              `Error leyendo ${file.name}:`,
+              error
+            );
+
+            return [];
+          }
+        }
+      )
+    );
+
+  /* =======================================================
+     UNIR TODAS LAS PLANTILLAS
+  ======================================================= */
+
+  const allPlayers:
+    GlobalEsmsPlayer[] = [];
+
+  for (
+    const roster of rosterResults
+  ) {
+    allPlayers.push(
+      ...roster
+    );
+  }
+
+  /* =======================================================
+     IMPORTADOR HISTÓRICO
+
+     Cuando estamos importando los snapshots
+     no necesitamos volver a consultar IDs.
+  ======================================================= */
+
+  if (
+    !includePlayerIds
+  ) {
+    return allPlayers;
+  }
+
+  /* =======================================================
+     ASOCIAR UUID DE SUPABASE
+  ======================================================= */
+
+  try {
+    const playerIdMap =
+      await getPlayerIdMap();
+
+    return allPlayers.map(
+      (player) => {
+        const identityKey =
+          getPlayerIdentityKey(
+            player.name,
+            player.nat
           );
 
-          return [];
-        }
+        const playerId =
+          playerIdMap.get(
+            identityKey
+          ) ?? null;
 
-        const text = await fileBlob.text();
-
-        const players = parseEsmsPlantilla(text);
-
-        return players.map((player) => ({
+        return {
           ...player,
-
-          teamCode: team.name,
-          teamName: getClubName(team.name),
-        }));
-      } catch (error) {
-        console.error(
-          `Error cargando ${team.filename}:`,
-          error
-        );
-
-        return [];
+          playerId,
+        };
       }
-    })
-  );
+    );
+  } catch (
+    error
+  ) {
+    /*
+     * Si Supabase no responde,
+     * no queremos romper:
+     *
+     * - Plantillas
+     * - Buscador
+     * - Creador
+     *
+     * Simplemente el enlace histórico
+     * no estará disponible temporalmente.
+     */
 
-  return results.flat();
+    console.error(
+      "No se pudieron asociar los IDs históricos de los jugadores:",
+      error
+    );
+
+    return allPlayers;
+  }
 }

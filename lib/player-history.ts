@@ -13,12 +13,11 @@ import type {
   PlayerTransfer,
 } from "@/lib/player-history-types";
 
-type SnapshotInsert = Omit<
-  PlayerSnapshot,
-  "id" | "created_at"
->;
+/* =========================================================
+   ESTADÍSTICAS QUE VIGILAMOS
+========================================================= */
 
-const TRACKED_STATS = [
+export const TRACKED_STATS = [
   "st",
   "tk",
   "ps",
@@ -48,144 +47,49 @@ const TRACKED_STATS = [
   "fit",
 ] as const;
 
-type TrackedStat =
+export type TrackedStat =
   (typeof TRACKED_STATS)[number];
 
-function normalizeName(
-  name: string
+/* =========================================================
+   NORMALIZACIÓN
+========================================================= */
+
+export function normalizePlayerName(
+  value: string
 ) {
-  return name
+  return value
     .trim()
     .toLowerCase();
 }
 
-function normalizeNationality(
+export function normalizeNationality(
+  value: string
+) {
+  return value
+    .trim()
+    .toLowerCase();
+}
+
+export function getPlayerIdentityKey(
+  name: string,
   nationality: string
 ) {
-  return nationality
-    .trim()
-    .toLowerCase();
+  return `${normalizePlayerName(
+    name
+  )}::${normalizeNationality(
+    nationality
+  )}`;
 }
 
-export async function findDatabasePlayer(
-  player: GlobalEsmsPlayer
-): Promise<
-  DatabasePlayer | null
-> {
-  const supabase =
-    getSupabaseAdmin();
+/* =========================================================
+   CONVERSIÓN SNAPSHOT
+========================================================= */
 
-  const {
-    data,
-    error,
-  } = await supabase
-    .from("players")
-    .select("*")
-    .eq(
-      "esms_name",
-      player.name
-    )
-    .eq(
-      "nationality",
-      player.nat
-    )
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-export async function createDatabasePlayer(
-  player: GlobalEsmsPlayer
-): Promise<DatabasePlayer> {
-  const supabase =
-    getSupabaseAdmin();
-
-  const {
-    data,
-    error,
-  } = await supabase
-    .from("players")
-    .insert({
-      esms_name:
-        player.name,
-
-      nationality:
-        player.nat,
-
-      current_team_code:
-        player.teamCode,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-export async function getOrCreateDatabasePlayer(
-  player: GlobalEsmsPlayer
-): Promise<DatabasePlayer> {
-  const existing =
-    await findDatabasePlayer(
-      player
-    );
-
-  if (existing) {
-    return existing;
-  }
-
-  return createDatabasePlayer(
-    player
-  );
-}
-
-export async function getLatestPlayerSnapshot(
-  playerId: string
-): Promise<
-  PlayerSnapshot | null
-> {
-  const supabase =
-    getSupabaseAdmin();
-
-  const {
-    data,
-    error,
-  } = await supabase
-    .from(
-      "player_snapshots"
-    )
-    .select("*")
-    .eq(
-      "player_id",
-      playerId
-    )
-    .order(
-      "snapshot_date",
-      {
-        ascending: false,
-      }
-    )
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-function buildSnapshot(
+export function buildPlayerSnapshot(
   playerId: string,
-  player: GlobalEsmsPlayer
-): SnapshotInsert {
+  player: GlobalEsmsPlayer,
+  snapshotDate: string
+) {
   return {
     player_id:
       playerId,
@@ -194,7 +98,7 @@ function buildSnapshot(
       player.teamCode,
 
     snapshot_date:
-      new Date().toISOString(),
+      snapshotDate,
 
     age:
       player.age,
@@ -273,7 +177,11 @@ function buildSnapshot(
   };
 }
 
-function hasSnapshotChanged(
+/* =========================================================
+   ¿HA CAMBIADO?
+========================================================= */
+
+export function hasPlayerChanged(
   previous: PlayerSnapshot,
   player: GlobalEsmsPlayer
 ) {
@@ -291,6 +199,13 @@ function hasSnapshotChanged(
     return true;
   }
 
+  if (
+    previous.ag !==
+    player.ag
+  ) {
+    return true;
+  }
+
   return TRACKED_STATS.some(
     (stat) =>
       previous[stat] !==
@@ -298,256 +213,58 @@ function hasSnapshotChanged(
   );
 }
 
-async function registerTransfer(
-  playerId: string,
-  fromTeam:
-    | string
-    | null,
-  toTeam: string
-) {
-  const supabase =
-    getSupabaseAdmin();
+/* =========================================================
+   TIPO DE EVENTO
+========================================================= */
 
-  const {
-    error,
-  } = await supabase
-    .from("transfers")
-    .insert({
-      player_id:
-        playerId,
-
-      from_team_code:
-        fromTeam,
-
-      to_team_code:
-        toTeam,
-
-      transfer_date:
-        new Date().toISOString(),
-    });
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function registerEvent(
-  playerId: string,
-  snapshotId: string,
-  eventType: string,
-  stat: string,
-  oldValue: string,
-  newValue: string
-) {
-  const supabase =
-    getSupabaseAdmin();
-
-  const {
-    error,
-  } = await supabase
-    .from("player_events")
-    .insert({
-      player_id:
-        playerId,
-
-      snapshot_id:
-        snapshotId,
-
-      event_type:
-        eventType,
-
-      stat,
-
-      old_value:
-        oldValue,
-
-      new_value:
-        newValue,
-    });
-
-  if (error) {
-    throw error;
-  }
-}
-
-function getEventType(
+export function getHistoryEventType(
+  stat: TrackedStat,
   oldValue: number,
   newValue: number
 ) {
-  if (
-    newValue >
-    oldValue
-  ) {
-    return "progression";
-  }
+  const progressionStats:
+    TrackedStat[] = [
+      "st",
+      "tk",
+      "ps",
+      "sh",
 
+      "kab",
+      "tab",
+      "pab",
+      "sab",
+    ];
+
+  /*
+   * Para medias/EXP sí hablamos de
+   * progresión/regresión.
+   */
   if (
-    newValue <
-    oldValue
+    progressionStats.includes(
+      stat
+    )
   ) {
+    if (
+      newValue >
+      oldValue
+    ) {
+      return "progression";
+    }
+
     return "regression";
   }
 
-  return "unchanged";
+  /*
+   * Para estadísticas, lesiones,
+   * sanciones, etc. es simplemente
+   * un cambio.
+   */
+  return "stat_change";
 }
 
-async function registerSnapshotEvents(
-  playerId: string,
-  snapshotId: string,
-  previous: PlayerSnapshot,
-  player: GlobalEsmsPlayer
-) {
-  for (
-    const stat of TRACKED_STATS
-  ) {
-    const oldValue =
-      previous[stat];
-
-    const newValue =
-      player[stat];
-
-    if (
-      oldValue ===
-      newValue
-    ) {
-      continue;
-    }
-
-    const eventType =
-      getEventType(
-        oldValue,
-        newValue
-      );
-
-    await registerEvent(
-      playerId,
-      snapshotId,
-      eventType,
-      stat,
-      String(oldValue),
-      String(newValue)
-    );
-  }
-}
-
-async function updateCurrentTeam(
-  playerId: string,
-  teamCode: string
-) {
-  const supabase =
-    getSupabaseAdmin();
-
-  const {
-    error,
-  } = await supabase
-    .from("players")
-    .update({
-      current_team_code:
-        teamCode,
-
-      updated_at:
-        new Date().toISOString(),
-    })
-    .eq(
-      "id",
-      playerId
-    );
-
-  if (error) {
-    throw error;
-  }
-}
-
-export async function savePlayerSnapshot(
-  player: GlobalEsmsPlayer
-) {
-  const supabase =
-    getSupabaseAdmin();
-
-  const databasePlayer =
-    await getOrCreateDatabasePlayer(
-      player
-    );
-
-  const previous =
-    await getLatestPlayerSnapshot(
-      databasePlayer.id
-    );
-
-  if (
-    previous &&
-    !hasSnapshotChanged(
-      previous,
-      player
-    )
-  ) {
-    return {
-      status:
-        "unchanged" as const,
-
-      playerId:
-        databasePlayer.id,
-    };
-  }
-
-  const snapshot =
-    buildSnapshot(
-      databasePlayer.id,
-      player
-    );
-
-  const {
-    data: createdSnapshot,
-    error,
-  } = await supabase
-    .from(
-      "player_snapshots"
-    )
-    .insert(snapshot)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  if (
-    previous &&
-    previous.team_code !==
-      player.teamCode
-  ) {
-    await registerTransfer(
-      databasePlayer.id,
-      previous.team_code,
-      player.teamCode
-    );
-  }
-
-  if (previous) {
-    await registerSnapshotEvents(
-      databasePlayer.id,
-      createdSnapshot.id,
-      previous,
-      player
-    );
-  }
-
-  await updateCurrentTeam(
-    databasePlayer.id,
-    player.teamCode
-  );
-
-  return {
-    status:
-      "saved" as const,
-
-    playerId:
-      databasePlayer.id,
-
-    snapshotId:
-      createdSnapshot.id,
-  };
-}
+/* =========================================================
+   DATOS DE PÁGINA DEL JUGADOR
+========================================================= */
 
 export async function getPlayerPageData(
   playerId: string
@@ -589,7 +306,9 @@ export async function getPlayerPageData(
         ),
 
       supabase
-        .from("transfers")
+        .from(
+          "transfers"
+        )
         .select("*")
         .eq(
           "player_id",
@@ -660,20 +379,16 @@ export async function getPlayerPageData(
   };
 }
 
+/* =========================================================
+   BUSCAR ID DE JUGADOR
+========================================================= */
+
 export async function findPlayerIdByEsmsIdentity(
   name: string,
   nationality: string
 ) {
   const supabase =
     getSupabaseAdmin();
-
-  const normalizedName =
-    normalizeName(name);
-
-  const normalizedNationality =
-    normalizeNationality(
-      nationality
-    );
 
   const {
     data,
@@ -688,20 +403,66 @@ export async function findPlayerIdByEsmsIdentity(
     throw error;
   }
 
-  const result =
+  const targetKey =
+    getPlayerIdentityKey(
+      name,
+      nationality
+    );
+
+  const found =
     data.find(
       (player) =>
-        normalizeName(
-          player.esms_name
-        ) ===
-          normalizedName &&
-        normalizeNationality(
+        getPlayerIdentityKey(
+          player.esms_name,
           player.nationality
         ) ===
-          normalizedNationality
+        targetKey
     );
 
   return (
-    result?.id ?? null
+    found?.id ??
+    null
   );
+}
+
+/* =========================================================
+   MAPA GLOBAL DE IDS
+========================================================= */
+
+export async function getPlayerIdMap() {
+  const supabase =
+    getSupabaseAdmin();
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("players")
+    .select(
+      "id, esms_name, nationality"
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  const map =
+    new Map<
+      string,
+      string
+    >();
+
+  for (
+    const player of data
+  ) {
+    map.set(
+      getPlayerIdentityKey(
+        player.esms_name,
+        player.nationality
+      ),
+      player.id
+    );
+  }
+
+  return map;
 }
