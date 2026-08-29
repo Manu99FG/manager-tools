@@ -1,72 +1,55 @@
-MANAGER TOOLS - FOTO DE JUGADOR SIN FONDO, 100% GRATUITA
-=========================================================
+MANAGER TOOLS - ADMINISTRACION PRIVADA
+=====================================
 
-1) INSTALA LA LIBRERÍA
+OBJETIVO
+--------
+Los visitantes normales NO reciben ni ven PlayerPhotoAdmin.
+Solo aparece en la ficha si existe una sesión de administrador válida.
+Los endpoints de subir/borrar fotos también exigen esa sesión.
 
-Desde C:\Users\manue\manager-tools:
-
-npm install @imgly/background-removal onnxruntime-web@1.21.0-dev.20250206-d981b153d3
-
-No necesitas REMOVE_BG_API_KEY.
-
-2) VARIABLE DE ADMINISTRADOR
-
-En .env.local:
-
-ADMIN_PHOTO_PASSWORD=TU_CONTRASEÑA
-
-Añádela también en Vercel.
-
-3) SUPABASE
-
-Ejecuta supabase-player-photo-manual.sql en SQL Editor.
-
-Eso añade:
-- players.photo_url
-- players.photo_path
-- bucket público player-photos
-
-4) COPIA / REEMPLAZA
-
+ARCHIVOS A COPIAR/REEMPLAZAR
+----------------------------
+lib/admin-auth.ts
+app/admin/page.tsx
+app/api/admin/login/route.ts
+app/api/admin/logout/route.ts
 components/PlayerPhotoAdmin.tsx
+app/jugadores/[id]/page.tsx
 app/api/player-photo/upload/route.ts
 app/api/player-photo/delete/route.ts
-app/jugadores/[id]/page.tsx
-next.config.ts
 
-5) BORRA EL SISTEMA WIKIMEDIA ANTIGUO
+VARIABLES DE ENTORNO
+--------------------
+En .env.local y Vercel:
 
-Puedes borrar:
-- components/PlayerPhotoSelector.tsx
-- lib/player-photo.ts
-- app/api/player-photo/search/
-- app/api/player-photo/save/
+ADMIN_PHOTO_PASSWORD=TU_CONTRASENA
+ADMIN_SESSION_SECRET=ReCcqUsWblJNWPjH0NarXW-eL_POZNm6VPi5F0Bg3IaEbLmRXq5LCS4He3-dM7Wi
 
-6) IMPORTANTE
+ADMIN_SESSION_SECRET debe ser distinto de la contraseña.
+No uses NEXT_PUBLIC_ en ninguna de estas dos variables.
 
-La eliminación de fondo ocurre EN EL NAVEGADOR con @imgly/background-removal.
-La imagen original nunca se sube a Manager Tools.
-Solo se envía a tu API el PNG transparente ya procesado.
+FUNCIONAMIENTO
+--------------
+1. Entra en /admin
+2. Introduce ADMIN_PHOTO_PASSWORD
+3. Se crea una cookie HttpOnly firmada, válida durante 7 días.
+4. Ve a /buscador y abre cualquier jugador.
+5. La sección Administración aparecerá solo en tu sesión.
+6. Ya no tienes que volver a escribir la contraseña en cada jugador.
+7. Para salir, vuelve a /admin y pulsa Cerrar sesión.
 
-La primera eliminación puede tardar bastante más porque el navegador descarga los archivos del modelo de IA. Después quedan en caché.
-
-7) PRUEBA
-
+PRUEBA
+------
+npm run build
 npm run dev
 
-Abre una ficha de jugador:
-- selecciona JPG/PNG/WEBP
-- pulsa "Eliminar fondo gratis"
-- revisa la previsualización transparente
-- introduce contraseña admin
-- pulsa "Guardar fotografía"
+Comprueba también en una ventana de incógnito:
+- ficha de jugador: no debe aparecer Administración
+- /api/player-photo/upload sin sesión: debe responder 401
+- /api/player-photo/delete sin sesión: debe responder 401
 
-8) BUILD
-
-npm run build
-
-Si compila:
-
+DEPLOY
+------
 git add .
-git commit -m "Add free in-browser player background removal"
+git commit -m "Protect admin photo tools"
 git push origin main

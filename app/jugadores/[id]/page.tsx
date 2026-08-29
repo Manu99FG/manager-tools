@@ -25,6 +25,10 @@ import {
 import PlayerProfileCard from "@/components/PlayerProfileCard";
 import PlayerPhotoAdmin from "@/components/PlayerPhotoAdmin";
 
+import {
+  isAdminSession,
+} from "@/lib/admin-auth";
+
 export const dynamic =
   "force-dynamic";
 
@@ -278,6 +282,9 @@ export default async function PlayerPage({
   } = await params;
 
   try {
+    const isAdmin =
+      await isAdminSession();
+
     const {
       player,
       snapshots,
@@ -724,11 +731,13 @@ export default async function PlayerPage({
           photoUrl={photoUrl}
         />
 
-        <PlayerPhotoAdmin
-          playerId={player.id}
-          playerName={player.esms_name}
-          currentPhotoUrl={photoUrl}
-        />
+        {isAdmin && (
+          <PlayerPhotoAdmin
+            playerId={player.id}
+            playerName={player.esms_name}
+            currentPhotoUrl={photoUrl}
+          />
+        )}
 
         {/* NIVEL ACTUAL */}
 
