@@ -169,16 +169,25 @@ function money(value: number) {
 
 export async function getClubCodes(): Promise<string[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("competition_teams")
-    .select("team_code");
 
-  if (error) throw error;
+  // Los clubes existen de forma independiente a su participación en una competición.
+  // club_metadata actúa como registro base de clubes; competition_teams añade cualquier
+  // código legado/externo que todavía no tenga metadatos creados.
+  const [metadataResult, participantsResult] = await Promise.all([
+    supabase.from("club_metadata").select("team_code"),
+    supabase.from("competition_teams").select("team_code"),
+  ]);
+
+  if (metadataResult.error) throw metadataResult.error;
+  if (participantsResult.error) throw participantsResult.error;
 
   return Array.from(
     new Set(
-      (data ?? [])
-        .map((row) => String(row.team_code ?? "").toUpperCase())
+      [
+        ...(metadataResult.data ?? []),
+        ...(participantsResult.data ?? []),
+      ]
+        .map((row) => String(row.team_code ?? "").trim().toUpperCase())
         .filter(Boolean)
     )
   ).sort();
