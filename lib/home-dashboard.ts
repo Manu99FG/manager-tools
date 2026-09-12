@@ -193,7 +193,7 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
       .select("id,esms_name,full_name,photo_url,current_team_code"),
     supabase
       .from("club_metadata")
-      .select("club_code", { count: "exact", head: true }),
+      .select("team_code", { count: "exact", head: true }),
   ]);
 
   if (playersResult.error) throw playersResult.error;
