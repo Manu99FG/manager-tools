@@ -10,8 +10,8 @@ function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
-function playerKey(teamCode: string, name: string, nationality: string) {
-  return `${teamCode.toUpperCase()}::${normalize(name)}::${normalize(nationality)}`;
+function playerKey(name: string, nationality: string) {
+  return `${normalize(name)}::${normalize(nationality)}`;
 }
 
 function teamCodeFromPath(path: string) {
@@ -71,6 +71,7 @@ export async function rebuildPlayersFromBase(): Promise<BasePlayersRebuildResult
     nationality: string;
     current_team_code: string;
     owner_team_code: string;
+    origin_team_code: string;
   }> = [];
 
   let skipped = 0;
@@ -97,29 +98,33 @@ export async function rebuildPlayersFromBase(): Promise<BasePlayersRebuildResult
         nationality: player.nat,
         current_team_code: teamCode,
         owner_team_code: teamCode,
+        origin_team_code: teamCode,
       });
     }
   }
 
   const unique = new Map<string, (typeof parsedRows)[number]>();
   for (const row of parsedRows) {
-    unique.set(playerKey(row.current_team_code, row.esms_name, row.nationality), row);
+    const key = playerKey(row.esms_name, row.nationality);
+    const previous = unique.get(key);
+    if (previous && previous.current_team_code !== row.current_team_code) {
+      throw new Error(
+        `Identidad ambigua en las Plantillas BASE: ${row.esms_name} (${row.nationality}) aparece en ${previous.current_team_code} y ${row.current_team_code}.`
+      );
+    }
+    unique.set(key, row);
   }
   const rows = [...unique.values()];
 
   const supabase = getSupabaseAdmin();
   const { data: existingData, error: existingError } = await supabase
     .from("players")
-    .select("id,esms_name,nationality,current_team_code,owner_team_code");
+    .select("id,esms_name,nationality,current_team_code,owner_team_code,origin_team_code");
   if (existingError) throw existingError;
 
   const existing = new Map<string, any>();
   for (const player of existingData ?? []) {
-    if (!player.current_team_code) continue;
-    existing.set(
-      playerKey(player.current_team_code, player.esms_name, player.nationality),
-      player
-    );
+    existing.set(playerKey(player.esms_name, player.nationality), player);
   }
 
   const now = new Date().toISOString();
@@ -127,21 +132,19 @@ export async function rebuildPlayersFromBase(): Promise<BasePlayersRebuildResult
   const updates: Array<{ id: string; row: Record<string, unknown> }> = [];
 
   for (const row of rows) {
-    const current = existing.get(playerKey(row.current_team_code, row.esms_name, row.nationality));
+    const current = existing.get(playerKey(row.esms_name, row.nationality));
     if (!current) {
       inserts.push({ ...row, created_at: now, updated_at: now });
       continue;
     }
 
-    if (
-      current.current_team_code !== row.current_team_code ||
-      current.owner_team_code !== row.owner_team_code
-    ) {
+    // La BASE define el club de origen histórico. No debe devolver al jugador
+    // a ese club si actualmente ya juega en otro equipo.
+    if (current.origin_team_code !== row.origin_team_code) {
       updates.push({
         id: current.id,
         row: {
-          current_team_code: row.current_team_code,
-          owner_team_code: row.owner_team_code,
+          origin_team_code: row.origin_team_code,
           updated_at: now,
         },
       });

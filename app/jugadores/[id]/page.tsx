@@ -1206,11 +1206,28 @@ export default async function PlayerPage({
               bg-[var(--mt-surface)]
             "
           >
-            {transfers.length ===
-            0 ? (
-              <EmptyState>
-                Todavía no hay transferencias registradas.
-              </EmptyState>
+            {player.origin_team_code ? (
+              <div
+                className="grid grid-cols-1 gap-4 border-b border-[var(--mt-line)] p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+              >
+                <div>
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--mt-gold-dark)]">
+                    Club inicial · Plantilla BASE
+                  </div>
+                  <TeamTransfer teamCode={player.origin_team_code} />
+                </div>
+                <div className="text-xs font-semibold text-[var(--mt-muted)]">
+                  Inicio de la partida
+                </div>
+              </div>
+            ) : null}
+
+            {transfers.length === 0 ? (
+              player.origin_team_code ? null : (
+                <EmptyState>
+                  Todavía no hay historial de clubes registrado.
+                </EmptyState>
+              )
             ) : (
               transfers.map(
                 (transfer) => (

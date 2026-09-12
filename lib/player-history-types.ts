@@ -12,6 +12,10 @@ export type DatabasePlayer = {
     | string
     | null;
 
+  origin_team_code?:
+    | string
+    | null;
+
   created_at: string;
   updated_at: string;
 };

@@ -659,6 +659,9 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           owner_team_code:
             player.teamCode,
 
+          origin_team_code:
+            player.teamCode,
+
           created_at:
             now,
 
@@ -1128,6 +1131,11 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
 
         owner_team_code:
           databasePlayer.owner_team_code ??
+          databasePlayer.current_team_code ??
+          player.teamCode,
+
+        origin_team_code:
+          databasePlayer.origin_team_code ??
           databasePlayer.current_team_code ??
           player.teamCode,
 
