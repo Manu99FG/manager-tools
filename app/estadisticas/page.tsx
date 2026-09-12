@@ -5,7 +5,7 @@ export default function EstadisticasPage() {
         Estadísticas
       </h1>
 
-      <p className="mt-2 text-slate-400">
+      <p className="mt-2 text-[var(--mt-muted)]">
         Próximamente: estadísticas de jugadores
         y equipos.
       </p>

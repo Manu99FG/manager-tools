@@ -393,7 +393,7 @@ export default function StrategyBuilder({
       <div
         className="
           border-b-2
-          border-blue-500
+          border-[var(--mt-gold)]
           pb-3
         "
       >
@@ -401,7 +401,7 @@ export default function StrategyBuilder({
           className="
             text-xl
             font-bold
-            text-blue-400
+            text-[var(--mt-gold-dark)]
           "
         >
           Cambio de táctica
@@ -432,7 +432,7 @@ export default function StrategyBuilder({
             className="
               text-sm
               font-medium
-              text-white
+              text-[var(--mt-text)]
             "
           >
             Cambiar táctica a:
@@ -450,13 +450,13 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
               outline-none
-              focus:border-blue-500
+              focus:border-[var(--mt-gold)]
             "
           >
             {TACTICS.map(
@@ -484,7 +484,7 @@ export default function StrategyBuilder({
             sm:items-center
           "
         >
-          <label className="text-sm text-white">
+          <label className="text-sm text-[var(--mt-text)]">
             Si minuto:
           </label>
 
@@ -502,11 +502,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -538,11 +538,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -574,7 +574,7 @@ export default function StrategyBuilder({
             sm:items-center
           "
         >
-          <label className="text-sm text-white">
+          <label className="text-sm text-[var(--mt-text)]">
             Si marcador:
           </label>
 
@@ -592,11 +592,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -628,11 +628,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -666,7 +666,7 @@ export default function StrategyBuilder({
             sm:items-center
           "
         >
-          <label className="text-sm text-white">
+          <label className="text-sm text-[var(--mt-text)]">
             Si cartulina amarilla:
           </label>
 
@@ -682,11 +682,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -718,7 +718,7 @@ export default function StrategyBuilder({
             sm:items-center
           "
         >
-          <label className="text-sm text-white">
+          <label className="text-sm text-[var(--mt-text)]">
             Si cartulina roja:
           </label>
 
@@ -734,11 +734,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -770,7 +770,7 @@ export default function StrategyBuilder({
             sm:items-center
           "
         >
-          <label className="text-sm text-white">
+          <label className="text-sm text-[var(--mt-text)]">
             Si lesión:
           </label>
 
@@ -786,11 +786,11 @@ export default function StrategyBuilder({
               h-10
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -820,19 +820,19 @@ export default function StrategyBuilder({
             mt-3
             w-full
             rounded-md
-            bg-emerald-500
+            bg-[var(--mt-gold)]
             px-4
             py-3
             text-sm
             font-bold
-            text-white
+            text-[var(--mt-surface)]
             transition
 
-            hover:bg-emerald-400
+            hover:bg-[var(--mt-gold)]
 
             disabled:cursor-not-allowed
-            disabled:bg-emerald-900
-            disabled:text-slate-500
+            disabled:bg-[var(--mt-muted)]
+            disabled:text-[var(--mt-muted)]
           "
         >
           Agregar Estrategia
@@ -843,7 +843,7 @@ export default function StrategyBuilder({
             className="
               text-center
               text-xs
-              text-slate-600
+              text-[var(--mt-muted)]
             "
           >
             Completa al menos una condición SI.
@@ -867,7 +867,7 @@ export default function StrategyBuilder({
               font-bold
               uppercase
               tracking-wide
-              text-slate-500
+              text-[var(--mt-muted)]
             "
           >
             Estrategias
@@ -883,8 +883,8 @@ export default function StrategyBuilder({
                   gap-3
                   rounded-md
                   border
-                  border-slate-800
-                  bg-slate-900
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
                   px-4
                   py-3
                 "
@@ -894,7 +894,7 @@ export default function StrategyBuilder({
                     min-w-0
                     flex-1
                     text-sm
-                    text-white
+                    text-[var(--mt-text)]
                   "
                 >
                   {getStrategyLabel(
@@ -921,7 +921,7 @@ export default function StrategyBuilder({
                     bg-red-500
                     text-lg
                     font-bold
-                    text-white
+                    text-[var(--mt-surface)]
                     transition
                     hover:bg-red-400
                   "

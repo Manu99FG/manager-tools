@@ -4,10 +4,11 @@ import {
 } from "@/lib/all-players";
 
 import {
-  buildPlayerHistoryEvents,
   buildPlayerSnapshot,
+  getHistoryEventType,
   getPlayerIdentityKey,
   hasPlayerChanged,
+  TRACKED_STATS,
 } from "@/lib/player-history";
 
 import type {
@@ -25,9 +26,7 @@ import {
 
 export type ImportError = {
   player: string;
-
   team: string;
-
   error: string;
 };
 
@@ -50,12 +49,165 @@ export type ImportHistoryResult = {
     ImportError[];
 };
 
+type ResolvedPlayer = {
+  player:
+    GlobalEsmsPlayer;
+
+  databasePlayer:
+    DatabasePlayer;
+};
+
 /* =========================================================
-   ELIMINAR DUPLICADOS
+   ERROR
+========================================================= */
+
+function getErrorMessage(
+  error: unknown
+) {
+  if (
+    error instanceof Error
+  ) {
+    return error.message;
+  }
+
+  if (
+    error &&
+    typeof error === "object"
+  ) {
+    const possible =
+      error as {
+        message?: unknown;
+        details?: unknown;
+        hint?: unknown;
+        code?: unknown;
+      };
+
+    const parts: string[] =
+      [];
+
+    if (
+      typeof possible.message ===
+      "string"
+    ) {
+      parts.push(
+        possible.message
+      );
+    }
+
+    if (
+      typeof possible.details ===
+      "string"
+    ) {
+      parts.push(
+        `Detalles: ${possible.details}`
+      );
+    }
+
+    if (
+      typeof possible.hint ===
+      "string"
+    ) {
+      parts.push(
+        `Hint: ${possible.hint}`
+      );
+    }
+
+    if (
+      typeof possible.code ===
+      "string"
+    ) {
+      parts.push(
+        `Código: ${possible.code}`
+      );
+    }
+
+    if (
+      parts.length >
+      0
+    ) {
+      return parts.join(
+        " | "
+      );
+    }
+
+    try {
+      return JSON.stringify(
+        error
+      );
+    } catch {
+      return String(error);
+    }
+  }
+
+  return String(error);
+}
+
+/* =========================================================
+   IDENTIDAD
+
+   IMPORTANTE:
+   ----------
+   getPlayerIdentityKey(name, nat) sigue siendo útil como
+   "familia de identidad", pero YA NO es suficiente para
+   identificar un registro concreto cuando existen homónimos.
+
+   Ejemplo válido:
+   FLA + M_Cunha + bra
+   MUN + M_Cunha + bra
+
+   La identidad permanente real es players.id (UUID).
+========================================================= */
+
+function normalize(
+  value: string
+) {
+  return value
+    .normalize("NFC")
+    .trim()
+    .toLocaleLowerCase(
+      "es"
+    );
+}
+
+function getRosterKey(
+  teamCode: string,
+  name: string,
+  nationality: string
+) {
+  return [
+    teamCode
+      .trim()
+      .toUpperCase(),
+    normalize(name),
+    normalize(
+      nationality
+    ),
+  ].join("::");
+}
+
+function getBaseIdentityKey(
+  name: string,
+  nationality: string
+) {
+  return getPlayerIdentityKey(
+    name,
+    nationality
+  );
+}
+
+/* =========================================================
+   ELIMINAR DUPLICADOS DE LA IMPORTACIÓN ACTUAL
+
+   Antes se deduplicaba por nombre+nacionalidad.
+   Eso eliminaba uno de dos homónimos.
+
+   Ahora SOLO consideramos duplicado si aparece dos veces
+   dentro del MISMO equipo con mismo nombre+nacionalidad.
 ========================================================= */
 
 function deduplicatePlayers(
-  players: GlobalEsmsPlayer[]
+  players:
+    GlobalEsmsPlayer[]
 ) {
   const map =
     new Map<
@@ -67,7 +219,8 @@ function deduplicatePlayers(
     const player of players
   ) {
     const key =
-      getPlayerIdentityKey(
+      getRosterKey(
+        player.teamCode,
         player.name,
         player.nat
       );
@@ -84,6 +237,341 @@ function deduplicatePlayers(
 }
 
 /* =========================================================
+   AGRUPAR
+========================================================= */
+
+function groupCurrentPlayers(
+  players:
+    GlobalEsmsPlayer[]
+) {
+  const groups =
+    new Map<
+      string,
+      GlobalEsmsPlayer[]
+    >();
+
+  for (
+    const player of players
+  ) {
+    const key =
+      getBaseIdentityKey(
+        player.name,
+        player.nat
+      );
+
+    const current =
+      groups.get(key) ??
+      [];
+
+    current.push(
+      player
+    );
+
+    groups.set(
+      key,
+      current
+    );
+  }
+
+  return groups;
+}
+
+function groupDatabasePlayers(
+  players:
+    DatabasePlayer[]
+) {
+  const groups =
+    new Map<
+      string,
+      DatabasePlayer[]
+    >();
+
+  for (
+    const player of players
+  ) {
+    const key =
+      getBaseIdentityKey(
+        player.esms_name,
+        player.nationality
+      );
+
+    const current =
+      groups.get(key) ??
+      [];
+
+    current.push(
+      player
+    );
+
+    groups.set(
+      key,
+      current
+    );
+  }
+
+  return groups;
+}
+
+/* =========================================================
+   RESOLVER IDENTIDADES EXISTENTES
+
+   Estrategia segura:
+
+   1. Primero:
+      mismo nombre + nacionalidad + equipo actual.
+
+      Esto resuelve automáticamente:
+      FLA/M_Cunha y MUN/M_Cunha como UUID diferentes.
+
+   2. Después:
+      dentro de una familia nombre+nacionalidad,
+      si queda EXACTAMENTE:
+      - 1 jugador actual sin resolver
+      - 1 registro DB sin usar
+
+      lo interpretamos como un traspaso.
+
+   3. Si quedan varios registros y varios jugadores sin
+      resolver, NO adivinamos.
+
+      Ejemplo extremo:
+      dos M_Cunha cambian de equipo simultáneamente.
+
+      En ese caso detenemos la importación antes de corromper
+      historiales.
+========================================================= */
+
+function resolveExistingPlayers(
+  currentPlayers:
+    GlobalEsmsPlayer[],
+  databasePlayers:
+    DatabasePlayer[]
+) {
+  const currentGroups =
+    groupCurrentPlayers(
+      currentPlayers
+    );
+
+  const databaseGroups =
+    groupDatabasePlayers(
+      databasePlayers
+    );
+
+  const resolved =
+    new Map<
+      string,
+      DatabasePlayer
+    >();
+
+  const newPlayers:
+    GlobalEsmsPlayer[] =
+    [];
+
+  const allKeys =
+    new Set<string>([
+      ...currentGroups.keys(),
+      ...databaseGroups.keys(),
+    ]);
+
+  for (
+    const baseKey of
+      allKeys
+  ) {
+    const currentGroup =
+      currentGroups.get(
+        baseKey
+      ) ?? [];
+
+    const databaseGroup =
+      databaseGroups.get(
+        baseKey
+      ) ?? [];
+
+    if (
+      currentGroup.length ===
+      0
+    ) {
+      continue;
+    }
+
+    const usedDatabaseIds =
+      new Set<string>();
+
+    const unresolvedCurrent:
+      GlobalEsmsPlayer[] =
+      [];
+
+    /* -------------------------------------------------------
+       A. Coincidencia exacta por club actual
+    ------------------------------------------------------- */
+
+    for (
+      const player of
+        currentGroup
+    ) {
+      const exactCandidates =
+        databaseGroup.filter(
+          (
+            databasePlayer
+          ) =>
+            !usedDatabaseIds.has(
+              databasePlayer.id
+            ) &&
+            databasePlayer.current_team_code
+              ?.trim()
+              .toUpperCase() ===
+              player.teamCode
+                .trim()
+                .toUpperCase()
+        );
+
+      if (
+        exactCandidates.length ===
+        1
+      ) {
+        const match =
+          exactCandidates[0];
+
+        usedDatabaseIds.add(
+          match.id
+        );
+
+        resolved.set(
+          getRosterKey(
+            player.teamCode,
+            player.name,
+            player.nat
+          ),
+          match
+        );
+
+        continue;
+      }
+
+      if (
+        exactCandidates.length >
+        1
+      ) {
+        throw new Error(
+          [
+            `Hay varios registros de base de datos para ${player.name}`,
+            `(${player.nat}) dentro del equipo ${player.teamCode}.`,
+            "Hay que corregir esos duplicados antes de importar.",
+          ].join(" ")
+        );
+      }
+
+      unresolvedCurrent.push(
+        player
+      );
+    }
+
+    const unusedDatabase =
+      databaseGroup.filter(
+        (
+          databasePlayer
+        ) =>
+          !usedDatabaseIds.has(
+            databasePlayer.id
+          )
+      );
+
+    /* -------------------------------------------------------
+       B. Traspaso inequívoco
+    ------------------------------------------------------- */
+
+    if (
+      unresolvedCurrent.length ===
+        1 &&
+      unusedDatabase.length ===
+        1
+    ) {
+      const player =
+        unresolvedCurrent[0];
+
+      const databasePlayer =
+        unusedDatabase[0];
+
+      resolved.set(
+        getRosterKey(
+          player.teamCode,
+          player.name,
+          player.nat
+        ),
+        databasePlayer
+      );
+
+      continue;
+    }
+
+    /* -------------------------------------------------------
+       C. Ningún registro previo:
+          son jugadores nuevos.
+    ------------------------------------------------------- */
+
+    if (
+      unusedDatabase.length ===
+      0
+    ) {
+      newPlayers.push(
+        ...unresolvedCurrent
+      );
+
+      continue;
+    }
+
+    /* -------------------------------------------------------
+       D. Hay registros previos pero no podemos saber qué UUID
+          corresponde a qué jugador.
+
+          No creamos IDs nuevos a ciegas.
+    ------------------------------------------------------- */
+
+    if (
+      unresolvedCurrent.length >
+      0
+    ) {
+      const currentDescription =
+        unresolvedCurrent
+          .map(
+            (
+              player
+            ) =>
+              `${player.teamCode}/${player.name}`
+          )
+          .join(", ");
+
+      const databaseDescription =
+        unusedDatabase
+          .map(
+            (
+              player
+            ) =>
+              `${
+                player.current_team_code ??
+                "SIN_EQUIPO"
+              }/${player.esms_name}/${player.id}`
+          )
+          .join(", ");
+
+      throw new Error(
+        [
+          "Identidad ambigua detectada.",
+          `Jugadores actuales: ${currentDescription}.`,
+          `Registros posibles: ${databaseDescription}.`,
+          "No se ha modificado ningún historial de este grupo para evitar mezclar jugadores homónimos.",
+        ].join(" ")
+      );
+    }
+  }
+
+  return {
+    resolved,
+    newPlayers,
+  };
+}
+
+/* =========================================================
    IMPORTACIÓN
 ========================================================= */
 
@@ -91,10 +579,10 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   const supabase =
     getSupabaseAdmin();
 
-  /* =======================================================
-     PLANTILLAS
-  ======================================================= */
-
+  /*
+   * No incluimos IDs históricos aquí porque esta función
+   * es precisamente la encargada de resolverlos.
+   */
   const rawPlayers =
     await getAllPlayers({
       includePlayerIds:
@@ -110,7 +598,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     new Date().toISOString();
 
   /* =======================================================
-     JUGADORES EXISTENTES
+     1. LEER JUGADORES EXISTENTES
   ======================================================= */
 
   const {
@@ -130,40 +618,27 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   const existingPlayers =
-    existingPlayersData as DatabasePlayer[];
-
-  const existingMap =
-    new Map<
-      string,
-      DatabasePlayer
-    >();
-
-  for (
-    const player of existingPlayers
-  ) {
-    existingMap.set(
-      getPlayerIdentityKey(
-        player.esms_name,
-        player.nationality
-      ),
-      player
-    );
-  }
+    existingPlayersData as
+      DatabasePlayer[];
 
   /* =======================================================
-     NUEVOS JUGADORES
+     2. RESOLVER UUID EXISTENTES + JUGADORES NUEVOS
   ======================================================= */
 
-  const missingPlayers =
-    players.filter(
-      (player) =>
-        !existingMap.has(
-          getPlayerIdentityKey(
-            player.name,
-            player.nat
-          )
-        )
+  const {
+    resolved:
+      initialResolved,
+    newPlayers:
+      missingPlayers,
+  } =
+    resolveExistingPlayers(
+      players,
+      existingPlayers
     );
+
+  /* =======================================================
+     3. CREAR SOLO LOS JUGADORES QUE REALMENTE FALTAN
+  ======================================================= */
 
   if (
     missingPlayers.length >
@@ -181,6 +656,9 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           current_team_code:
             player.teamCode,
 
+          owner_team_code:
+            player.teamCode,
+
           created_at:
             now,
 
@@ -190,23 +668,24 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       );
 
     const {
-      error,
+      error:
+        insertPlayersError,
     } =
       await supabase
         .from("players")
-        .insert(
-          rows
-        );
+        .insert(rows);
 
     if (
-      error
+      insertPlayersError
     ) {
-      throw error;
+      throw insertPlayersError;
     }
   }
 
   /* =======================================================
-     RECARGAR JUGADORES PARA IDS
+     4. VOLVER A LEER JUGADORES
+
+     Ahora ya tenemos los UUID de los nuevos.
   ======================================================= */
 
   const {
@@ -226,28 +705,43 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   const databasePlayers =
-    databasePlayersData as DatabasePlayer[];
+    databasePlayersData as
+      DatabasePlayer[];
 
-  const databaseMap =
-    new Map<
-      string,
-      DatabasePlayer
-    >();
+  /*
+   * Volvemos a resolver con la base ya completa.
+   * En este punto cada jugador actual debe quedar asociado
+   * a exactamente un UUID.
+   */
+  const {
+    resolved:
+      finalResolved,
+    newPlayers:
+      stillMissing,
+  } =
+    resolveExistingPlayers(
+      players,
+      databasePlayers
+    );
 
-  for (
-    const player of databasePlayers
+  if (
+    stillMissing.length >
+    0
   ) {
-    databaseMap.set(
-      getPlayerIdentityKey(
-        player.esms_name,
-        player.nationality
-      ),
-      player
+    throw new Error(
+      `No se pudieron resolver ${stillMissing.length} jugadores después de crearlos.`
     );
   }
 
+  /*
+   * initialResolved se conserva conceptualmente para que sea
+   * evidente que los IDs previos no se recrean. finalResolved
+   * es el mapa definitivo tras insertar nuevos registros.
+   */
+  void initialResolved;
+
   /* =======================================================
-     ÚLTIMOS SNAPSHOTS
+     5. LEER SOLO ÚLTIMO SNAPSHOT
   ======================================================= */
 
   const {
@@ -269,7 +763,8 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   const latestSnapshots =
-    latestSnapshotsData as PlayerSnapshot[];
+    latestSnapshotsData as
+      PlayerSnapshot[];
 
   const snapshotMap =
     new Map<
@@ -278,7 +773,8 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     >();
 
   for (
-    const snapshot of latestSnapshots
+    const snapshot of
+      latestSnapshots
   ) {
     snapshotMap.set(
       snapshot.player_id,
@@ -287,7 +783,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     DETECTAR CAMBIOS
+     6. DETECTAR CAMBIOS EN MEMORIA
   ======================================================= */
 
   const changedPlayers: {
@@ -301,15 +797,15 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       PlayerSnapshot | null;
   }[] = [];
 
-  let unchanged =
-    0;
+  let unchanged = 0;
 
   for (
     const player of players
   ) {
     const databasePlayer =
-      databaseMap.get(
-        getPlayerIdentityKey(
+      finalResolved.get(
+        getRosterKey(
+          player.teamCode,
           player.name,
           player.nat
         )
@@ -319,15 +815,14 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       !databasePlayer
     ) {
       throw new Error(
-        `No se encontró ${player.name} en la base de datos.`
+        `No se encontró el UUID de ${player.teamCode}/${player.name}/${player.nat}.`
       );
     }
 
     const previous =
       snapshotMap.get(
         databasePlayer.id
-      ) ??
-      null;
+      ) ?? null;
 
     if (
       previous &&
@@ -338,25 +833,30 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     ) {
       unchanged++;
 
+      /*
+       * Aunque las estadísticas no hayan cambiado,
+       * el club actual debería coincidir.
+       *
+       * Si cambió el club, hasPlayerChanged debería haberlo
+       * detectado por el snapshot; por tanto no actualizamos
+       * nada aquí.
+       */
       continue;
     }
 
     changedPlayers.push({
       player,
-
       databasePlayer,
-
       previous,
     });
   }
 
   /* =======================================================
-     SNAPSHOTS
+     7. INSERTAR SNAPSHOTS DE UNA VEZ
   ======================================================= */
 
   let createdSnapshots: {
     id: string;
-
     player_id: string;
   }[] = [];
 
@@ -364,7 +864,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     changedPlayers.length >
     0
   ) {
-    const rows =
+    const snapshotRows =
       changedPlayers.map(
         ({
           player,
@@ -386,21 +886,18 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           "player_snapshots"
         )
         .insert(
-          rows
+          snapshotRows
         )
         .select(
           "id, player_id"
         );
 
-    if (
-      error
-    ) {
+    if (error) {
       throw error;
     }
 
     createdSnapshots =
-      data ??
-      [];
+      data ?? [];
   }
 
   const createdSnapshotMap =
@@ -410,7 +907,8 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     >();
 
   for (
-    const snapshot of createdSnapshots
+    const snapshot of
+      createdSnapshots
   ) {
     createdSnapshotMap.set(
       snapshot.player_id,
@@ -419,7 +917,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
   }
 
   /* =======================================================
-     TRANSFERENCIAS
+     8. TRANSFERENCIAS
   ======================================================= */
 
   const transferRows =
@@ -453,6 +951,14 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
 
           transfer_date:
             now,
+
+          movement_type:
+            "PENDING",
+
+          owner_team_code:
+            databasePlayer.owner_team_code ??
+            previous?.team_code ??
+            null,
         })
       );
 
@@ -464,71 +970,98 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
       error,
     } =
       await supabase
-        .from(
-          "transfers"
-        )
+        .from("transfers")
         .insert(
           transferRows
         );
 
-    if (
-      error
-    ) {
+    if (error) {
       throw error;
     }
   }
 
   /* =======================================================
-     EVENTOS
+     9. EVENTOS
   ======================================================= */
 
-  const eventRows =
-    changedPlayers.flatMap(
-      ({
-        player,
-        databasePlayer,
-        previous,
-      }) => {
-        /*
-         * Primer snapshot:
-         * no existe valor anterior.
-         */
-        if (
-          !previous
-        ) {
-          return [];
-        }
+  const eventRows: {
+    player_id: string;
+    snapshot_id: string;
+    event_type: string;
+    stat: string;
+    old_value: string;
+    new_value: string;
+    created_at: string;
+  }[] = [];
 
-        const snapshotId =
-          createdSnapshotMap.get(
-            databasePlayer.id
-          );
+  for (
+    const {
+      player,
+      databasePlayer,
+      previous,
+    } of changedPlayers
+  ) {
+    if (!previous) {
+      continue;
+    }
 
-        if (
-          !snapshotId
-        ) {
-          return [];
-        }
+    const snapshotId =
+      createdSnapshotMap.get(
+        databasePlayer.id
+      );
 
-        return buildPlayerHistoryEvents({
-          playerId:
-            databasePlayer.id,
+    if (!snapshotId) {
+      continue;
+    }
 
+    for (
+      const stat of
+        TRACKED_STATS
+    ) {
+      const oldValue =
+        previous[stat];
+
+      const newValue =
+        player[stat];
+
+      if (
+        oldValue ===
+        newValue
+      ) {
+        continue;
+      }
+
+      eventRows.push({
+        player_id:
+          databasePlayer.id,
+
+        snapshot_id:
           snapshotId,
 
-          previous,
+        event_type:
+          getHistoryEventType(
+            stat,
+            oldValue,
+            newValue
+          ),
 
-          player,
+        stat,
 
-          createdAt:
-            now,
-        });
-      }
-    );
+        old_value:
+          String(
+            oldValue
+          ),
 
-  /* =======================================================
-     INSERTAR EVENTOS EN BLOQUES
-  ======================================================= */
+        new_value:
+          String(
+            newValue
+          ),
+
+        created_at:
+          now,
+      });
+    }
+  }
 
   if (
     eventRows.length >
@@ -562,16 +1095,17 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
             chunk
           );
 
-      if (
-        error
-      ) {
+      if (error) {
         throw error;
       }
     }
   }
 
   /* =======================================================
-     ACTUALIZAR CLUB ACTUAL
+     10. ACTUALIZAR CLUB ACTUAL
+
+     Siempre por UUID.
+     Nunca por nombre.
   ======================================================= */
 
   const playerUpdates =
@@ -590,6 +1124,11 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           databasePlayer.nationality,
 
         current_team_code:
+          player.teamCode,
+
+        owner_team_code:
+          databasePlayer.owner_team_code ??
+          databasePlayer.current_team_code ??
           player.teamCode,
 
         created_at:
@@ -617,9 +1156,7 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
           }
         );
 
-    if (
-      error
-    ) {
+    if (error) {
       throw error;
     }
   }
@@ -646,10 +1183,8 @@ export async function importCurrentPlayerHistory(): Promise<ImportHistoryResult>
     events:
       eventRows.length,
 
-    errors:
-      0,
+    errors: 0,
 
-    errorDetails:
-      [],
+    errorDetails: [],
   };
 }

@@ -19,7 +19,7 @@ export default function HistorialPage() {
         className="
           text-2xl
           font-bold
-          text-white
+          text-[var(--mt-text)]
         "
       >
         Historial
@@ -29,7 +29,7 @@ export default function HistorialPage() {
         className="
           mt-2
           text-sm
-          text-slate-400
+          text-[var(--mt-muted)]
         "
       >
         Actualiza el registro histórico de todas las plantillas.

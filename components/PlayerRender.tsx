@@ -16,10 +16,10 @@ const POSITION_GLOW: Record<
   string
 > = {
   GK: "from-yellow-400/12",
-  DF: "from-blue-500/12",
-  DM: "from-cyan-500/12",
+  DF: "from-[var(--mt-surface-soft)]",
+  DM: "from-[var(--mt-surface-soft)]",
   MF: "from-green-500/12",
-  AM: "from-violet-500/12",
+  AM: "from-[var(--mt-surface-soft)]",
   FW: "from-red-500/12",
 };
 
@@ -122,8 +122,8 @@ export default function PlayerRender({
           z-30
           h-[19%]
           bg-gradient-to-t
-          from-slate-950
-          via-slate-950/55
+          from-[var(--mt-surface)]
+          via-[var(--mt-surface)]
           to-transparent
         "
       />

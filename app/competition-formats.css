@@ -1,0 +1,60 @@
+/* Format-specific presentation; shared palette remains in globals.css. */
+.v311-detail .v311-hero-bg, .v311-detail .v3113-hero { display: none; }
+.v311-detail .v311-hero { background: repeating-linear-gradient(125deg, transparent 0 65px, rgba(255,255,255,.025) 66px 67px), var(--mt-black); }
+.v311-detail .v311-hero-shade { background: none; }
+.v311-detail .v311-hero-copy > p { color: var(--mt-line) !important; }
+.v311-detail .v311-hero-meta-card strong { color: var(--mt-text); }
+.v311-detail .v311-tabs button.is-active { color: var(--mt-gold-dark) !important; }
+.v311-detail .v311-tabs button.is-active::after { background: var(--mt-gold); }
+.competition-format-mark { width: 150px; height: 78px; flex: 0 0 auto; color: var(--mt-gold); stroke: currentColor; stroke-width: 2; }
+.competition-format-mark rect { fill: var(--mt-surface); }
+.competition-format-banner { display: flex; align-items: center; gap: 24px; margin: 20px 0; padding: 24px; border: 1px solid var(--mt-line); border-radius: 13px; background: var(--mt-surface); }
+.competition-format-eyebrow { color: var(--mt-gold-dark); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.competition-format-banner h2, .competition-knockout h2 { margin: 5px 0 8px; font-size: clamp(20px, 2.4vw, 28px); color: var(--mt-text); line-height: 1.2; }
+.competition-format-banner p, .competition-knockout-heading p { margin: 0; color: var(--mt-muted); font-size: 13px; line-height: 1.6; }
+.competition-format-facts { margin-left: auto; display: flex; gap: 18px; color: var(--mt-muted); white-space: nowrap; font-size: 12px; }
+.competition-format-facts b { display: block; font-size: 26px; color: var(--mt-text); }
+.format-cup, .format-supercup { border-top: 3px solid var(--mt-gold); }
+.format-groups { border-left: 4px solid var(--mt-gold); }
+.format-groups_knockout { border-top: 3px solid var(--mt-gold); border-left: 4px solid var(--mt-gold); }
+.competition-phase-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.competition-phase-links a { padding: 8px 12px; border: 1px solid var(--mt-line); border-radius: 8px; color: var(--mt-gold-dark); font-size: 12px; font-weight: 700; }
+.competition-phase-links a:hover { background: var(--mt-surface-soft); border-color: var(--mt-gold); }
+.competition-knockout { margin: 20px 0; padding: 24px; border: 1px solid var(--mt-line); border-radius: 13px; background: var(--mt-surface); box-shadow: 0 3px 14px rgba(24,24,24,.04); scroll-margin-top: 95px; }
+.competition-knockout-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+.competition-bracket { display: flex; align-items: stretch; gap: 24px; overflow-x: auto; padding: 4px 3px 18px; scrollbar-color: var(--mt-gold) var(--mt-surface-soft); }
+.competition-round { flex: 1 0 240px; min-width: 240px; max-width: 330px; display: flex; flex-direction: column; }
+.competition-round > header { display: flex; flex-direction: column; gap: 5px; padding-bottom: 14px; border-bottom: 2px solid var(--mt-gold); }
+.competition-round h3 { margin: 0; font-size: 15px; color: var(--mt-text); }
+.competition-round header span { color: var(--mt-muted); font-size: 12px; }
+.competition-round-matches { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 16px; padding-top: 16px; }
+.competition-tie { display: block; border: 1px solid var(--mt-line); border-radius: 12px; padding: 12px; background: var(--mt-surface); transition: border-color 150ms ease, box-shadow 150ms ease; }
+.competition-tie:hover { border-color: var(--mt-gold); box-shadow: 0 3px 12px rgba(24,24,24,.06); }
+.competition-tie-status { display: block; margin-bottom: 8px; color: var(--mt-muted); font-size: 10px; }
+.competition-tie-team { display: grid; grid-template-columns: 24px minmax(0,1fr) 26px; align-items: center; gap: 10px; min-height: 38px; color: var(--mt-text); font-size: 13px; }
+.competition-tie-team + .competition-tie-team { border-top: 1px solid var(--mt-line); }
+.competition-tie-team > span { overflow-wrap: anywhere; }
+.competition-tie-team b { text-align: center; font-variant-numeric: tabular-nums; }
+.competition-format-empty { padding: 24px 12px; border-radius: 10px; background: var(--mt-surface-soft); color: var(--mt-muted); font-size: 13px; line-height: 1.6; }
+.competition-unclassified { margin-top: 18px; border-top: 1px solid var(--mt-line); padding-top: 16px; }
+.competition-unclassified summary { cursor: pointer; color: var(--mt-gold-dark); font-size: 13px; font-weight: 700; }
+.competition-unclassified > p { font-size: 12px; color: var(--mt-muted); }
+.competition-unassigned-matches { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 12px; margin-top: 12px; }
+.competition-format-callout { padding: 20px; }
+.competition-format-callout h3 { font-size: 17px; color: var(--mt-text); }
+.competition-format-callout p { font-size: 13px; color: var(--mt-muted); line-height: 1.6; }
+.competition-card-format { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--mt-line); }
+.competition-card-format .competition-format-mark { width: 65px; height: 38px; }
+.competition-card-format span { color: var(--mt-gold-dark); font-size: 12px; font-weight: 800; }
+.competition-layout-cup .v3113-hero, .competition-layout-supercup .v3113-hero { display: none; }
+.competition-layout-groups_knockout .v3113-group-overview, .v3111-groups-standings-page { scroll-margin-top: 95px; }
+@media(max-width:700px) {
+  .competition-format-banner { flex-wrap: wrap; padding: 18px; gap: 14px; }
+  .competition-format-banner > .competition-format-mark { width: 90px; height: 48px; }
+  .competition-format-banner > div:not(.competition-format-facts) { flex: 1 1 180px; }
+  .competition-format-facts { margin: 0; width: 100%; padding-top: 12px; border-top: 1px solid var(--mt-line); }
+  .competition-format-facts span { display: flex; align-items: baseline; gap: 7px; }
+  .competition-knockout { padding: 16px; }
+  .competition-knockout-heading > .competition-format-mark { display: none; }
+  .competition-round { min-width: 230px; flex-basis: 230px; }
+}

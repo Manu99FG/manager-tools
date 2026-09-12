@@ -199,16 +199,7 @@ export default function PlayerHistoryImporter() {
         data.result
       );
 
-      const seconds =
-        (
-          (Date.now() -
-            startedAt) /
-          1000
-        ).toFixed(1);
-
-      console.log(
-        `Historial actualizado en ${seconds}s`
-      );
+      void startedAt;
     } catch (
       caughtError
     ) {
@@ -230,8 +221,8 @@ export default function PlayerHistoryImporter() {
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-5
       "
     >
@@ -251,7 +242,7 @@ export default function PlayerHistoryImporter() {
             className="
               text-lg
               font-bold
-              text-white
+              text-[var(--mt-text)]
             "
           >
             Historial de jugadores
@@ -261,7 +252,7 @@ export default function PlayerHistoryImporter() {
             className="
               mt-1
               text-sm
-              text-slate-400
+              text-[var(--mt-muted)]
             "
           >
             Compara las plantillas actuales con el último registro.
@@ -278,15 +269,15 @@ export default function PlayerHistoryImporter() {
           }
           className="
             rounded-lg
-            bg-blue-500
+            bg-[var(--mt-gold)]
             px-5
             py-2.5
             text-sm
             font-bold
-            text-white
+            text-[var(--mt-surface)]
             transition
 
-            hover:bg-blue-400
+            hover:bg-[var(--mt-gold-dark)]
 
             disabled:cursor-not-allowed
             disabled:opacity-50
@@ -304,8 +295,8 @@ export default function PlayerHistoryImporter() {
             mt-5
             rounded-lg
             border
-            border-blue-900/50
-            bg-blue-950/20
+            border-[var(--mt-gold)]
+            bg-[var(--mt-surface-soft)]
             p-4
           "
         >
@@ -323,7 +314,7 @@ export default function PlayerHistoryImporter() {
                 animate-spin
                 rounded-full
                 border-2
-                border-blue-400
+                border-[var(--mt-gold)]
                 border-t-transparent
               "
             />
@@ -333,7 +324,7 @@ export default function PlayerHistoryImporter() {
                 className="
                   text-sm
                   font-bold
-                  text-blue-300
+                  text-[var(--mt-gold-dark)]
                 "
               >
                 Actualizando historial
@@ -343,7 +334,7 @@ export default function PlayerHistoryImporter() {
                 className="
                   mt-1
                   text-xs
-                  text-slate-500
+                  text-[var(--mt-muted)]
                 "
               >
                 Dropbox → comparación → Supabase
@@ -430,7 +421,7 @@ export default function PlayerHistoryImporter() {
                 py-3
                 text-sm
                 font-medium
-                text-emerald-400
+                text-emerald-700
               "
             >
               ✓ Historial actualizado correctamente.
@@ -471,7 +462,7 @@ export default function PlayerHistoryImporter() {
                       <div
                         className="
                           font-semibold
-                          text-white
+                          text-[var(--mt-text)]
                         "
                       >
                         {
@@ -482,7 +473,7 @@ export default function PlayerHistoryImporter() {
                           className="
                             ml-2
                             text-xs
-                            text-slate-500
+                            text-[var(--mt-muted)]
                           "
                         >
                           {
@@ -497,7 +488,7 @@ export default function PlayerHistoryImporter() {
                           block
                           break-words
                           text-xs
-                          text-red-300
+                          text-red-700
                         "
                       >
                         {
@@ -526,7 +517,7 @@ export default function PlayerHistoryImporter() {
           <div
             className="
               font-bold
-              text-red-400
+              text-red-700
             "
           >
             Error
@@ -538,7 +529,7 @@ export default function PlayerHistoryImporter() {
               block
               break-words
               text-sm
-              text-red-300
+              text-red-700
             "
           >
             {error}
@@ -566,15 +557,15 @@ function Stat({
       className="
         rounded-lg
         border
-        border-slate-800
-        bg-slate-950
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-3
       "
     >
       <div
         className="
           text-xs
-          text-slate-500
+          text-[var(--mt-muted)]
         "
       >
         {label}
@@ -585,7 +576,7 @@ function Stat({
           mt-1
           text-xl
           font-bold
-          text-white
+          text-[var(--mt-text)]
         "
       >
         {value}

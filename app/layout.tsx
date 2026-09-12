@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-
 import Sidebar from "@/components/Sidebar";
-
 import "./globals.css";
+import "./competition-formats.css";
 
 export const metadata: Metadata = {
-  title: "Manager Tools",
-  description:
-    "Herramientas de gestión para Evolution Soccer Online",
+  title: {
+    default: "Liga de Leyendas · Manager Tools",
+    template: "%s · Liga de Leyendas",
+  },
+  description: "Base de datos oficial de Liga de Leyendas",
 };
 
 export default function RootLayout({
@@ -18,27 +19,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <div className="min-h-screen bg-slate-900">
+        <div className="mt-app-shell">
           <Sidebar />
-
-          <main
-            className="
-              min-w-0
-              px-3
-              pb-6
-              pt-20
-              text-white
-
-              sm:px-4
-
-              md:px-6
-
-              lg:ml-64
-              lg:px-8
-              lg:py-8
-            "
-          >
-            {children}
+          <main className="mt-main">
+            <div className="mt-content">{children}</div>
           </main>
         </div>
       </body>

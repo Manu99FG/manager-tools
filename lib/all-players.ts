@@ -56,7 +56,7 @@ export async function getAllPlayers(
     await getPlantillasFiles();
 
   const dbx =
-    getDropboxClient();
+    await getDropboxClient();
 
   /* =======================================================
      DESCARGAR PLANTILLAS EN PARALELO

@@ -1,37 +1,4 @@
-import { getDropboxClient } from "@/lib/dropbox";
-
-const PLANTILLAS_PATH =
-  "/ESO - Evolution Soccer Online/Plantillas";
-
-const VALID_TEAM_CODES = new Set([
-  "AJA",
-  "ARS",
-  "ATM",
-  "BDO",
-  "BLE",
-  "BMU",
-  "BOC",
-  "CEL",
-  "CHE",
-  "DEP",
-  "FCB",
-  "FLA",
-  "IND",
-  "INT",
-  "JUV",
-  "LIV",
-  "MAR",
-  "MCI",
-  "MIL",
-  "MUN",
-  "NAP",
-  "OPO",
-  "PAR",
-  "PSG",
-  "PSV",
-  "RIV",
-  "RMA",
-]);
+import { getDropboxClient, getDropboxPlantillasFolder } from "@/lib/dropbox";
 
 export type PlantillaFile = {
   name: string;
@@ -43,7 +10,8 @@ export type PlantillaFile = {
 export async function getPlantillasFiles(): Promise<
   PlantillaFile[]
 > {
-  const dbx = getDropboxClient();
+  const dbx = await getDropboxClient();
+  const plantillasPath = await getDropboxPlantillasFolder("live");
 
   /*
    * Solo listamos la carpeta.
@@ -51,7 +19,7 @@ export async function getPlantillasFiles(): Promise<
    * No descargamos las 26 plantillas.
    */
   const response = await dbx.filesListFolder({
-    path: PLANTILLAS_PATH,
+    path: plantillasPath,
   });
 
   const plantillas: PlantillaFile[] = [];
@@ -74,15 +42,13 @@ export async function getPlantillasFiles(): Promise<
       .toUpperCase();
 
     /*
-     * Solo aceptamos códigos oficiales.
-     *
-     * Así ignoramos automáticamente:
-     * ALL.txt
-     * SALARIOS.txt
-     * Potenciales.txt
-     * etc.
+     * Aceptamos códigos ESMS de cualquier instalación.
+     * Solo descartamos ficheros auxiliares conocidos.
      */
-    if (!VALID_TEAM_CODES.has(code)) {
+    if (
+      !/^[A-Z0-9_-]{2,12}$/.test(code) ||
+      ["ALL", "SALARIOS", "POTENCIALES"].includes(code)
+    ) {
       continue;
     }
 

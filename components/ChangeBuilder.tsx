@@ -654,11 +654,11 @@ export default function ChangeBuilder({
             min-w-0
             rounded-md
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
           "
         >
           <option value="">
@@ -700,11 +700,11 @@ export default function ChangeBuilder({
             min-w-0
             rounded-md
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
           "
         >
           <option value="">
@@ -748,11 +748,11 @@ export default function ChangeBuilder({
             min-w-0
             rounded-md
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
           "
         >
           <option value="">
@@ -792,11 +792,11 @@ export default function ChangeBuilder({
           min-w-0
           rounded-md
           border
-          border-slate-700
-          bg-slate-800
+          border-[var(--mt-line)]
+          bg-[var(--mt-surface)]
           px-3
           text-sm
-          text-white
+          text-[var(--mt-text)]
         "
       >
         <option value="">
@@ -828,7 +828,7 @@ export default function ChangeBuilder({
       <div
         className="
           border-b-2
-          border-blue-500
+          border-[var(--mt-gold)]
           pb-3
         "
       >
@@ -836,7 +836,7 @@ export default function ChangeBuilder({
           className="
             text-xl
             font-bold
-            text-blue-400
+            text-[var(--mt-gold-dark)]
           "
         >
           Cambios
@@ -854,7 +854,7 @@ export default function ChangeBuilder({
             block
             text-sm
             font-medium
-            text-white
+            text-[var(--mt-text)]
           "
         >
           Tipo de cambio
@@ -875,14 +875,14 @@ export default function ChangeBuilder({
             w-full
             rounded-md
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             text-sm
             font-bold
-            text-white
+            text-[var(--mt-text)]
             outline-none
-            focus:border-blue-500
+            focus:border-[var(--mt-gold)]
           "
         >
           {ACTION_TYPES.map(
@@ -912,15 +912,15 @@ export default function ChangeBuilder({
             gap-3
             rounded-lg
             border
-            border-slate-800
-            bg-slate-900/60
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             p-4
 
             sm:grid-cols-3
           "
         >
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-[var(--mt-muted)]">
               Sale
             </label>
 
@@ -937,11 +937,11 @@ export default function ChangeBuilder({
                 w-full
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-white
+                text-[var(--mt-text)]
               "
             >
               <option value="">
@@ -962,7 +962,7 @@ export default function ChangeBuilder({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-[var(--mt-muted)]">
               Entra
             </label>
 
@@ -979,11 +979,11 @@ export default function ChangeBuilder({
                 w-full
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-white
+                text-[var(--mt-text)]
               "
             >
               <option value="">
@@ -1004,7 +1004,7 @@ export default function ChangeBuilder({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-[var(--mt-muted)]">
               Posición
             </label>
 
@@ -1023,11 +1023,11 @@ export default function ChangeBuilder({
                 w-full
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-white
+                text-[var(--mt-text)]
               "
             >
               {POSITIONS.map(
@@ -1062,12 +1062,12 @@ export default function ChangeBuilder({
             mt-4
             rounded-lg
             border
-            border-slate-800
-            bg-slate-900/60
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             p-4
           "
         >
-          <label className="mb-1 block text-xs text-slate-400">
+          <label className="mb-1 block text-xs text-[var(--mt-muted)]">
             Cambiar táctica a
           </label>
 
@@ -1084,11 +1084,11 @@ export default function ChangeBuilder({
               w-full
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             {TACTICS.map(
@@ -1119,15 +1119,15 @@ export default function ChangeBuilder({
             gap-3
             rounded-lg
             border
-            border-slate-800
-            bg-slate-900/60
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             p-4
 
             sm:grid-cols-2
           "
         >
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-[var(--mt-muted)]">
               Dorsal
             </label>
 
@@ -1146,11 +1146,11 @@ export default function ChangeBuilder({
                 w-full
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-white
+                text-[var(--mt-text)]
               "
             >
               <option value="">
@@ -1171,7 +1171,7 @@ export default function ChangeBuilder({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-[var(--mt-muted)]">
               Nueva posición
             </label>
 
@@ -1190,11 +1190,11 @@ export default function ChangeBuilder({
                 w-full
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-white
+                text-[var(--mt-text)]
               "
             >
               {POSITIONS.map(
@@ -1229,12 +1229,12 @@ export default function ChangeBuilder({
             mt-4
             rounded-lg
             border
-            border-slate-800
-            bg-slate-900/60
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             p-4
           "
         >
-          <label className="mb-1 block text-xs text-slate-400">
+          <label className="mb-1 block text-xs text-[var(--mt-muted)]">
             Nueva agresividad
           </label>
 
@@ -1253,11 +1253,11 @@ export default function ChangeBuilder({
               w-full
               rounded-md
               border
-              border-slate-700
-              bg-slate-800
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               px-3
               text-sm
-              text-white
+              text-[var(--mt-text)]
             "
           >
             <option value="">
@@ -1289,7 +1289,7 @@ export default function ChangeBuilder({
             items-center
             justify-between
             border-b
-            border-slate-800
+            border-[var(--mt-line)]
             pb-2
           "
         >
@@ -1297,7 +1297,7 @@ export default function ChangeBuilder({
             className="
               text-sm
               font-bold
-              text-white
+              text-[var(--mt-text)]
             "
           >
             Condiciones IF
@@ -1310,14 +1310,14 @@ export default function ChangeBuilder({
             }
             className="
               rounded-md
-              bg-blue-500
+              bg-[var(--mt-gold)]
               px-3
               py-1.5
               text-xs
               font-bold
-              text-white
+              text-[var(--mt-surface)]
               transition
-              hover:bg-blue-400
+              hover:bg-[var(--mt-gold-dark)]
             "
           >
             + Condición
@@ -1333,7 +1333,7 @@ export default function ChangeBuilder({
               py-6
               text-center
               text-xs
-              text-slate-600
+              text-[var(--mt-muted)]
             "
           >
             Debes añadir al menos una condición.
@@ -1369,8 +1369,8 @@ export default function ChangeBuilder({
                     gap-2
                     rounded-lg
                     border
-                    border-slate-800
-                    bg-slate-900
+                    border-[var(--mt-line)]
+                    bg-[var(--mt-surface)]
                     p-3
 
                     sm:grid-cols-[130px_90px_minmax(0,1fr)_40px]
@@ -1396,11 +1396,11 @@ export default function ChangeBuilder({
                       h-10
                       rounded-md
                       border
-                      border-slate-700
-                      bg-slate-800
+                      border-[var(--mt-line)]
+                      bg-[var(--mt-surface)]
                       px-3
                       text-sm
-                      text-white
+                      text-[var(--mt-text)]
                     "
                   >
                     {CONDITION_TYPES.map(
@@ -1435,11 +1435,11 @@ export default function ChangeBuilder({
                         h-10
                         rounded-md
                         border
-                        border-slate-700
-                        bg-slate-800
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         px-3
                         text-sm
-                        text-white
+                        text-[var(--mt-text)]
                       "
                     >
                       {COMPARATORS.map(
@@ -1498,7 +1498,7 @@ export default function ChangeBuilder({
                       bg-red-500
                       text-xl
                       font-bold
-                      text-white
+                      text-[var(--mt-surface)]
                       transition
                       hover:bg-red-400
 
@@ -1526,18 +1526,18 @@ export default function ChangeBuilder({
           mt-5
           w-full
           rounded-md
-          bg-emerald-500
+          bg-[var(--mt-gold)]
           px-4
           py-3
           text-sm
           font-bold
-          text-white
+          text-[var(--mt-surface)]
           transition
-          hover:bg-emerald-400
+          hover:bg-[var(--mt-gold)]
 
           disabled:cursor-not-allowed
-          disabled:bg-emerald-950
-          disabled:text-slate-600
+          disabled:bg-[var(--mt-muted)]
+          disabled:text-[var(--mt-muted)]
         "
       >
         Agregar Cambio
@@ -1554,11 +1554,11 @@ export default function ChangeBuilder({
             className="
               mb-3
               border-b
-              border-slate-800
+              border-[var(--mt-line)]
               pb-2
               text-sm
               font-bold
-              text-slate-400
+              text-[var(--mt-muted)]
             "
           >
             Cambios guardados
@@ -1577,8 +1577,8 @@ export default function ChangeBuilder({
                     gap-3
                     rounded-md
                     border
-                    border-slate-800
-                    bg-slate-900
+                    border-[var(--mt-line)]
+                    bg-[var(--mt-surface)]
                     px-4
                     py-3
                   "
@@ -1591,7 +1591,7 @@ export default function ChangeBuilder({
                       break-words
                       text-xs
                       font-semibold
-                      text-white
+                      text-[var(--mt-text)]
 
                       sm:text-sm
                     "
@@ -1620,7 +1620,7 @@ export default function ChangeBuilder({
                       bg-red-500
                       text-lg
                       font-bold
-                      text-white
+                      text-[var(--mt-surface)]
                       transition
                       hover:bg-red-400
                     "

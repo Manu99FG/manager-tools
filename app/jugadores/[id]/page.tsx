@@ -24,10 +24,21 @@ import {
 
 import PlayerProfileCard from "@/components/PlayerProfileCard";
 import PlayerPhotoAdmin from "@/components/PlayerPhotoAdmin";
+import PlayerMatchHistory from "@/components/PlayerMatchHistory";
+import PlayerCareerHistory from "@/components/PlayerCareerHistory";
 
 import {
-  isAdminSession,
-} from "@/lib/admin-auth";
+  getPlayerMatchHistory,
+} from "@/lib/player-match-history";
+
+import {
+  getPlayerCareerHistory,
+  type CareerPosition,
+} from "@/lib/player-career-history";
+
+import { getPlayerPalmares } from "@/lib/player-palmares";
+import { getPlayerAwardHistory } from "@/lib/award-history";
+import PlayerAwards from "@/components/PlayerAwards";
 
 export const dynamic =
   "force-dynamic";
@@ -133,51 +144,6 @@ function eventLabel(
   );
 }
 
-function isExpEvent(
-  stat: string
-) {
-  return [
-    "kab",
-    "tab",
-    "pab",
-    "sab",
-  ].includes(stat);
-}
-
-function formatEventValue(
-  stat: string,
-  value: number
-) {
-  if (isExpEvent(stat)) {
-    return value.toLocaleString(
-      "es-ES"
-    );
-  }
-
-  return String(value);
-}
-
-function formatEventDifference(
-  stat: string,
-  difference: number
-) {
-  const signed =
-    signedValue(difference);
-
-  if (isExpEvent(stat)) {
-    return `${signed} EXP`;
-  }
-
-  if (
-    ["st", "tk", "ps", "sh"].includes(
-      stat
-    )
-  ) {
-    return `${signed} MEDIA`;
-  }
-
-  return signed;
-}
 
 function differenceClass(
   difference: number
@@ -185,16 +151,16 @@ function differenceClass(
   if (
     difference > 0
   ) {
-    return "text-emerald-400";
+    return "text-emerald-700";
   }
 
   if (
     difference < 0
   ) {
-    return "text-red-400";
+    return "text-red-700";
   }
 
-  return "text-slate-500";
+  return "text-[var(--mt-muted)]";
 }
 
 function signedValue(
@@ -274,6 +240,26 @@ function getChartBounds(
   };
 }
 
+function getSnapshotPosition(snapshot: { st: number; tk: number; ps: number; sh: number }): CareerPosition {
+  const { st, tk, ps, sh } = snapshot;
+  const max = Math.max(st, tk, ps, sh);
+  const tied = [st, tk, ps, sh].filter((value) => value === max).length > 1;
+
+  if (tied) {
+    if (st === max) return "GK";
+    if (sh === max) return "FW";
+    if (tk === max) return "DF";
+    return "MF";
+  }
+
+  if (st === max) return "GK";
+  if (sh === max) return "FW";
+  if (tk === max) return "DF";
+  if (tk > sh && ps - tk <= 5) return "DM";
+  if (sh > tk && ps - sh <= 5) return "AM";
+  return "MF";
+}
+
 export default async function PlayerPage({
   params,
 }: Props) {
@@ -281,11 +267,7 @@ export default async function PlayerPage({
     id,
   } = await params;
 
-  try {
-    const isAdmin =
-      await isAdminSession();
-
-    const {
+  const {
       player,
       snapshots,
       transfers,
@@ -301,6 +283,14 @@ export default async function PlayerPage({
     if (!current) {
       notFound();
     }
+
+    const [matchHistory, careerHistory, playerPalmares, awardHistory] =
+      await Promise.all([
+        getPlayerMatchHistory(player.id),
+        getPlayerCareerHistory(player.id, getSnapshotPosition(current)),
+        getPlayerPalmares(player.id),
+        getPlayerAwardHistory(player.id),
+      ]);
 
     const playerWithPhoto =
       player as typeof player & {
@@ -701,18 +691,18 @@ export default async function PlayerPage({
             className="
               inline-flex
               rounded-lg
-              bg-slate-800
+              bg-[var(--mt-surface)]
               px-4
               py-2
               text-sm
               font-semibold
-              text-white
+              text-[var(--mt-text)]
               transition
 
-              hover:bg-slate-700
+              hover:bg-[var(--mt-surface-soft)]
             "
           >
-            ← Volver al Buscador
+            ← Volver al buscador
           </Link>
         </div>
 
@@ -731,13 +721,22 @@ export default async function PlayerPage({
           photoUrl={photoUrl}
         />
 
-        {isAdmin && (
-          <PlayerPhotoAdmin
-            playerId={player.id}
-            playerName={player.esms_name}
-            currentPhotoUrl={photoUrl}
-          />
-        )}
+        <PlayerPhotoAdmin
+          playerId={player.id}
+          playerName={player.esms_name}
+          currentPhotoUrl={photoUrl}
+        />
+
+        <PlayerCareerHistory
+          data={careerHistory}
+          palmares={playerPalmares}
+        />
+
+        <PlayerAwards awards={awardHistory} />
+
+      <PlayerMatchHistory
+          data={matchHistory}
+        />
 
         {/* NIVEL ACTUAL */}
 
@@ -1093,8 +1092,8 @@ export default async function PlayerPage({
               overflow-hidden
               rounded-xl
               border
-              border-slate-800
-              bg-slate-900
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
             "
           >
             {progressionEvents.length ===
@@ -1130,7 +1129,7 @@ export default async function PlayerPage({
                         items-center
                         gap-3
                         border-b
-                        border-slate-800
+                        border-[var(--mt-line)]
                         px-4
                         py-4
 
@@ -1139,13 +1138,13 @@ export default async function PlayerPage({
                         sm:grid-cols-[120px_150px_1fr_auto]
                       "
                     >
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-[var(--mt-muted)]">
                         {formatDate(
                           event.created_at
                         )}
                       </div>
 
-                      <div className="font-bold text-white">
+                      <div className="font-bold text-[var(--mt-text)]">
                         {eventLabel(
                           event.stat
                         )}
@@ -1155,7 +1154,7 @@ export default async function PlayerPage({
                         className="
                           hidden
                           text-sm
-                          text-slate-400
+                          text-[var(--mt-muted)]
 
                           sm:block
                         "
@@ -1203,8 +1202,8 @@ export default async function PlayerPage({
               overflow-hidden
               rounded-xl
               border
-              border-slate-800
-              bg-slate-900
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
             "
           >
             {transfers.length ===
@@ -1224,7 +1223,7 @@ export default async function PlayerPage({
                       grid-cols-1
                       gap-4
                       border-b
-                      border-slate-800
+                      border-[var(--mt-line)]
                       p-4
 
                       last:border-b-0
@@ -1239,7 +1238,7 @@ export default async function PlayerPage({
                       }
                     />
 
-                    <div className="text-xl font-black text-blue-400">
+                    <div className="text-xl font-black text-[var(--mt-gold-dark)]">
                       →
                     </div>
 
@@ -1249,7 +1248,7 @@ export default async function PlayerPage({
                       }
                     />
 
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-[var(--mt-muted)]">
                       {formatDate(
                         transfer.transfer_date
                       )}
@@ -1274,8 +1273,8 @@ export default async function PlayerPage({
               overflow-hidden
               rounded-xl
               border
-              border-slate-800
-              bg-slate-900
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
             "
           >
             {events.length ===
@@ -1310,7 +1309,7 @@ export default async function PlayerPage({
                         grid-cols-1
                         gap-2
                         border-b
-                        border-slate-800
+                        border-[var(--mt-line)]
                         px-4
                         py-4
 
@@ -1320,19 +1319,19 @@ export default async function PlayerPage({
                         sm:items-center
                       "
                     >
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-[var(--mt-muted)]">
                         {formatDate(
                           event.created_at
                         )}
                       </div>
 
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-[var(--mt-text)]">
                         {eventLabel(
                           event.stat
                         )}
                       </div>
 
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-[var(--mt-muted)]">
                         {
                           event.old_value
                         }{" "}
@@ -1375,7 +1374,7 @@ export default async function PlayerPage({
               overflow-x-auto
               rounded-xl
               border
-              border-slate-800
+              border-[var(--mt-line)]
             "
           >
             <table
@@ -1385,7 +1384,7 @@ export default async function PlayerPage({
                 text-sm
               "
             >
-              <thead className="bg-slate-800 text-slate-300">
+              <thead className="bg-[var(--mt-surface)] text-[var(--mt-muted)]">
                 <tr>
                   <HistoryHeader>
                     Fecha
@@ -1449,14 +1448,14 @@ export default async function PlayerPage({
                       }
                       className={`
                         border-t
-                        border-slate-800
+                        border-[var(--mt-line)]
                         text-center
-                        text-white
+                        text-[var(--mt-text)]
 
                         ${
                           index === 0
-                            ? "bg-blue-500/5"
-                            : "bg-slate-900"
+                            ? "bg-[var(--mt-surface-soft)]"
+                            : "bg-[var(--mt-surface)]"
                         }
                       `}
                     >
@@ -1477,13 +1476,13 @@ export default async function PlayerPage({
                             className="
                               ml-2
                               rounded
-                              bg-blue-500/15
+                              bg-[var(--mt-surface-soft)]
                               px-2
                               py-1
                               text-[10px]
                               font-bold
                               uppercase
-                              text-blue-400
+                              text-[var(--mt-gold-dark)]
                             "
                           >
                             Actual
@@ -1577,16 +1576,6 @@ export default async function PlayerPage({
         </section>
       </main>
     );
-  } catch (
-    error
-  ) {
-    console.error(
-      "Error cargando ficha de jugador:",
-      error
-    );
-
-    notFound();
-  }
 }
 
 /* =========================================================
@@ -1608,31 +1597,31 @@ function getSeriesColorClass(
     normalized === "GK" ||
     normalized === "KAB"
   ) {
-    return "text-blue-400";
+    return "text-[var(--mt-gold-dark)]";
   }
 
   if (
     normalized === "DF" ||
     normalized === "TAB"
   ) {
-    return "text-emerald-400";
+    return "text-emerald-700";
   }
 
   if (
     normalized === "MF" ||
     normalized === "PAB"
   ) {
-    return "text-violet-400";
+    return "text-[var(--mt-gold-dark)]";
   }
 
   if (
     normalized === "FW" ||
     normalized === "SAB"
   ) {
-    return "text-amber-400";
+    return "text-[var(--mt-gold-dark)]";
   }
 
-  return "text-slate-300";
+  return "text-[var(--mt-muted)]";
 }
 
 /* =========================================================
@@ -1737,25 +1726,25 @@ function EvolutionChart({
         overflow-hidden
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
       "
     >
       <div
         className="
           border-b
-          border-slate-800
+          border-[var(--mt-line)]
           px-5
           py-4
         "
       >
-        <h3 className="font-bold text-white">
+        <h3 className="font-bold text-[var(--mt-text)]">
           {
             title
           }
         </h3>
 
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[var(--mt-muted)]">
           {
             subtitle
           }
@@ -1784,12 +1773,12 @@ function EvolutionChart({
                 items-center
                 gap-2
                 rounded-md
-                bg-slate-950
+                bg-[var(--mt-surface)]
                 px-3
                 py-1
                 text-xs
                 font-bold
-                text-slate-300
+                text-[var(--mt-muted)]
               "
             >
               <span
@@ -1859,7 +1848,7 @@ function EvolutionChart({
                     }
                     stroke="currentColor"
                     strokeOpacity="0.12"
-                    className="text-slate-400"
+                    className="text-[var(--mt-muted)]"
                   />
 
                   <text
@@ -1868,7 +1857,7 @@ function EvolutionChart({
                       y + 4
                     }
                     className="
-                      fill-slate-500
+                      fill-[var(--mt-surface)]
                       text-[10px]
                     "
                   >
@@ -2011,7 +2000,7 @@ function EvolutionChart({
                   }
                   textAnchor="middle"
                   className="
-                    fill-slate-500
+                    fill-[var(--mt-surface)]
                     text-[10px]
                   "
                 >
@@ -2028,11 +2017,11 @@ function EvolutionChart({
       <div
         className="
           border-t
-          border-slate-800
+          border-[var(--mt-line)]
           px-5
           py-3
           text-xs
-          text-slate-500
+          text-[var(--mt-muted)]
         "
       >
         Sitúa el cursor sobre un punto para consultar su valor exacto.
@@ -2058,7 +2047,7 @@ function SectionTitle({
         className="
           text-lg
           font-bold
-          text-white
+          text-[var(--mt-text)]
 
           sm:text-xl
         "
@@ -2073,7 +2062,7 @@ function SectionTitle({
           className="
             mt-1
             text-xs
-            text-slate-500
+            text-[var(--mt-muted)]
 
             sm:text-sm
           "
@@ -2083,47 +2072,6 @@ function SectionTitle({
           }
         </p>
       )}
-    </div>
-  );
-}
-
-function HeaderCounter({
-  value,
-  label,
-}: {
-  value: number;
-  label: string;
-}) {
-  return (
-    <div
-      className="
-        rounded-xl
-        border
-        border-slate-800
-        bg-slate-950
-        p-3
-        text-center
-      "
-    >
-      <div className="text-xl font-black text-white">
-        {
-          value
-        }
-      </div>
-
-      <div
-        className="
-          mt-1
-          text-[10px]
-          font-bold
-          uppercase
-          text-slate-500
-        "
-      >
-        {
-          label
-        }
-      </div>
     </div>
   );
 }
@@ -2144,8 +2092,8 @@ function SkillCard({
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-5
       "
     >
@@ -2156,7 +2104,7 @@ function SkillCard({
           justify-between
         "
       >
-        <span className="text-xs font-bold text-slate-500">
+        <span className="text-xs font-bold text-[var(--mt-muted)]">
           {
             label
           }
@@ -2195,8 +2143,8 @@ function SkillCard({
 
             ${
               rating >= 16
-                ? "text-emerald-400"
-                : "text-white"
+                ? "text-emerald-700"
+                : "text-[var(--mt-text)]"
             }
           `}
         >
@@ -2205,7 +2153,7 @@ function SkillCard({
           }
         </span>
 
-        <span className="text-sm text-slate-400">
+        <span className="text-sm text-[var(--mt-muted)]">
           ({exp})
         </span>
       </div>
@@ -2225,13 +2173,13 @@ function EvolutionCard({
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-4
         text-center
       "
     >
-      <div className="text-xs font-bold text-slate-500">
+      <div className="text-xs font-bold text-[var(--mt-muted)]">
         {
           label
         }
@@ -2267,18 +2215,18 @@ function StatCard({
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-4
       "
     >
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-[var(--mt-muted)]">
         {
           label
         }
       </div>
 
-      <div className="mt-1 text-xl font-bold text-white">
+      <div className="mt-1 text-xl font-bold text-[var(--mt-text)]">
         {
           value
         }
@@ -2301,12 +2249,12 @@ function SummaryCard({
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-4
       "
     >
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-[var(--mt-muted)]">
         {
           label
         }
@@ -2320,8 +2268,8 @@ function SummaryCard({
 
           ${
             positive
-              ? "text-emerald-400"
-              : "text-red-400"
+              ? "text-emerald-700"
+              : "text-red-700"
           }
         `}
       >
@@ -2342,7 +2290,7 @@ function TeamTransfer({
 }) {
   if (!teamCode) {
     return (
-      <div className="font-semibold text-slate-500">
+      <div className="font-semibold text-[var(--mt-muted)]">
         Sin club
       </div>
     );
@@ -2382,13 +2330,13 @@ function TeamTransfer({
       </div>
 
       <div>
-        <div className="text-sm font-bold text-white">
+        <div className="text-sm font-bold text-[var(--mt-text)]">
           {
             name
           }
         </div>
 
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-[var(--mt-muted)]">
           {
             teamCode
           }
@@ -2408,11 +2356,11 @@ function EmptyStateBox({
       className="
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-6
         text-sm
-        text-slate-500
+        text-[var(--mt-muted)]
       "
     >
       {
@@ -2428,7 +2376,7 @@ function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="p-6 text-sm text-slate-500">
+    <div className="p-6 text-sm text-[var(--mt-muted)]">
       {
         children
       }
@@ -2471,7 +2419,7 @@ function SkillHistoryCell({
       <span
         className={
           rating >= 16
-            ? "font-bold text-emerald-400"
+            ? "font-bold text-emerald-700"
             : ""
         }
       >
@@ -2480,7 +2428,7 @@ function SkillHistoryCell({
         }
       </span>
 
-      <span className="text-slate-500">
+      <span className="text-[var(--mt-muted)]">
         {" "}
         ({exp})
       </span>

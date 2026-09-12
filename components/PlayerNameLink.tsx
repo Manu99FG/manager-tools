@@ -35,7 +35,7 @@ export default function PlayerNameLink({
         cursor-pointer
         transition
 
-        hover:text-blue-400
+        hover:text-[var(--mt-gold-dark)]
         hover:underline
 
         ${className}

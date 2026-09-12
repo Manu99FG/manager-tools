@@ -20,7 +20,7 @@ export default async function BuscadorPage() {
           className="
             text-2xl
             font-bold
-            text-white
+            text-[var(--mt-text)]
 
             sm:text-3xl
 
@@ -34,7 +34,7 @@ export default async function BuscadorPage() {
           className="
             mt-2
             text-sm
-            text-slate-400
+            text-[var(--mt-muted)]
 
             sm:text-base
           "
@@ -48,7 +48,7 @@ export default async function BuscadorPage() {
           className="
             mt-1
             text-xs
-            text-slate-500
+            text-[var(--mt-muted)]
 
             sm:text-sm
           "

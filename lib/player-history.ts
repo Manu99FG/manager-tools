@@ -8,6 +8,7 @@ import {
 
 import {
   getDropboxClient,
+  getDropboxRosterPath,
 } from "@/lib/dropbox";
 
 import {
@@ -643,7 +644,7 @@ async function findPlayerInRoster(
   GlobalEsmsPlayer | null
 > {
   const dbx =
-    getDropboxClient();
+    await getDropboxClient();
 
   try {
     const response =
@@ -726,7 +727,7 @@ async function findCurrentPlayerInDropbox(
       databasePlayer.current_team_code.toUpperCase();
 
     const path =
-      `/ESO - Evolution Soccer Online/Plantillas/${teamCode}.txt`;
+      await getDropboxRosterPath(teamCode, "live");
 
     const found =
       await findPlayerInRoster(

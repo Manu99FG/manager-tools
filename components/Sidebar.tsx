@@ -1,282 +1,218 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
-const links = [
-  {
-    href: "/plantillas",
-    label: "Plantillas",
-    icon: "🛡️",
-  },
-  {
-    href: "/buscador",
-    label: "Buscador",
-    icon: "🔎",
-  },
-  {
-    href: "/creador",
-    label: "Creador (.sht)",
-    icon: "📋",
-  },
-  {
-    href: "/estadisticas",
-    label: "Estadísticas",
-    icon: "📊",
-  },
+type Item = {
+  href: string;
+  label: string;
+  icon: string;
+};
+
+const items: Item[] = [
+  { href: "/", label: "Inicio", icon: "home" },
+  { href: "/clubes", label: "Clubes", icon: "clubs" },
+  { href: "/buscador", label: "Jugadores", icon: "players" },
+  { href: "/competiciones", label: "Competiciones", icon: "trophy" },
+  { href: "/mercado", label: "Mercado", icon: "market" },
+  { href: "/historia", label: "Historia", icon: "history" },
+  { href: "/premios", label: "Premios", icon: "award" },
+  { href: "/records", label: "Estadísticas", icon: "stats" },
+  { href: "/alineaciones", label: "Alineaciones", icon: "tools" },
+];
+
+const secondary: Item[] = [
+  { href: "/temporadas", label: "Temporadas", icon: "calendar" },
+  { href: "/votaciones", label: "Votaciones", icon: "vote" },
+  { href: "/admin", label: "Administración", icon: "admin" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const [
-    mobileOpen,
-    setMobileOpen,
-  ] = useState(false);
-
-  /*
-   * Al cambiar de página cerramos
-   * automáticamente el menú móvil.
-   */
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
+  const active = (href: string) =>
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <>
-      {/* ======================================
-          HEADER MÓVIL
-      ====================================== */}
-
-      <header
-        className="
-          fixed
-          left-0
-          right-0
-          top-0
-          z-50
-          flex
-          h-16
-          items-center
-          justify-between
-          border-b
-          border-slate-800
-          bg-slate-950
-          px-4
-
-          lg:hidden
-        "
-      >
-        <Link
-          href="/plantillas"
-          className="
-            text-sm
-            font-black
-            tracking-wider
-            text-cyan-400
-          "
-        >
-          MANAGER TOOLS
+      <header className="mt-topbar">
+        <Link href="/" className="mt-mobile-brand">
+          <Image
+            src="/branding/liga-leyendas-logo-oficial-v308.png"
+            alt="Liga de Leyendas"
+            width={44}
+            height={44}
+            className="mt-mobile-logo"
+            priority
+          />
+          <span>
+            <strong>Manager Tools</strong>
+            <small>Liga de Leyendas</small>
+          </span>
         </Link>
 
-        <button
-          type="button"
-          onClick={() =>
-            setMobileOpen(
-              (current) => !current
-            )
-          }
-          aria-label={
-            mobileOpen
-              ? "Cerrar menú"
-              : "Abrir menú"
-          }
-          className="
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-lg
-            border
-            border-slate-700
-            bg-slate-900
-            text-xl
-            text-white
-            transition
-            hover:bg-slate-800
-          "
-        >
-          {mobileOpen
-            ? "✕"
-            : "☰"}
-        </button>
-      </header>
+        <Link href="/buscador" className="mt-global-search">
+          <SearchIcon />
+          <span>Buscar jugador, club, competición...</span>
+        </Link>
 
-      {/* ======================================
-          OVERLAY
-      ====================================== */}
-
-      {mobileOpen && (
-        <button
-          type="button"
-          aria-label="Cerrar menú"
-          onClick={() =>
-            setMobileOpen(false)
-          }
-          className="
-            fixed
-            inset-0
-            z-40
-            bg-black/60
-            backdrop-blur-[2px]
-
-            lg:hidden
-          "
-        />
-      )}
-
-      {/* ======================================
-          SIDEBAR
-      ====================================== */}
-
-      <aside
-        className={`
-          fixed
-          bottom-0
-          left-0
-          top-0
-          z-50
-          w-64
-          shrink-0
-          border-r
-          border-slate-800
-          bg-slate-950
-          p-4
-          transition-transform
-          duration-200
-          ease-out
-
-          lg:translate-x-0
-
-          ${
-            mobileOpen
-              ? "translate-x-0"
-              : "-translate-x-full"
-          }
-        `}
-      >
-        {/* CABECERA */}
-
-        <div
-          className="
-            mb-8
-            flex
-            h-12
-            items-center
-            justify-between
-          "
-        >
-          <Link
-            href="/plantillas"
-            className="
-              text-sm
-              font-black
-              tracking-wider
-              text-cyan-400
-            "
-          >
-            MANAGER TOOLS
+        <div className="mt-top-actions">
+          <span className="mt-top-dot">●</span>
+          <Link href="/admin" className="mt-profile">
+            <span className="mt-avatar">MT</span>
+            <span className="mt-profile-copy">
+              <strong>Manager Tools</strong>
+              <small>Administración</small>
+            </span>
           </Link>
 
           <button
             type="button"
-            onClick={() =>
-              setMobileOpen(false)
-            }
-            className="
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
-              rounded-md
-              text-lg
-              text-slate-400
-              transition
-              hover:bg-slate-900
-              hover:text-white
-
-              lg:hidden
-            "
+            className="mt-menu-button"
+            aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+            onClick={() => setMobileOpen((value) => !value)}
           >
-            ✕
+            {mobileOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
+      </header>
 
-        {/* NAVEGACIÓN */}
+      <aside className={mobileOpen ? "mt-sidebar is-open" : "mt-sidebar"}>
+        <Link href="/" className="mt-side-brand">
+          <Image
+            src="/branding/liga-leyendas-logo-oficial-v308.png"
+            alt="Liga de Leyendas"
+            width={66}
+            height={66}
+            className="mt-side-logo"
+            priority
+          />
+          <span className="mt-side-brand-copy">
+            <strong>Manager Tools</strong>
+            <small>Liga de Leyendas</small>
+          </span>
+        </Link>
 
-        <nav className="space-y-2">
-          {links.map((link) => {
-            const active =
-              pathname ===
-                link.href ||
-              pathname.startsWith(
-                `${link.href}/`
-              );
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`
-                  flex
-                  items-center
-                  gap-3
-                  rounded-lg
-                  px-4
-                  py-3
-                  text-sm
-                  font-medium
-                  transition
-
-                  ${
-                    active
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
-                  }
-                `}
-              >
-                <span className="text-base">
-                  {link.icon}
-                </span>
-
-                <span>
-                  {link.label}
-                </span>
-              </Link>
-            );
-          })}
+        <nav className="mt-side-nav">
+          {items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={active(item.href) ? "mt-side-link is-active" : "mt-side-link"}
+            >
+              <span className="mt-side-icon">
+                <NavIcon name={item.icon} />
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
         </nav>
 
-        {/* PIE */}
+        <div className="mt-side-divider" />
 
-        <div
-          className="
-            absolute
-            bottom-5
-            left-4
-            text-xs
-            text-slate-700
-          "
-        >
-          Evolution Soccer Online
+        <nav className="mt-side-nav mt-side-nav-secondary">
+          {secondary.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={active(item.href) ? "mt-side-link is-active" : "mt-side-link"}
+            >
+              <span className="mt-side-icon">
+                <NavIcon name={item.icon} />
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mt-side-footer">
+          <div className="mt-side-footer-ball">⚽</div>
+          <div>
+            <strong>Liga de Leyendas</strong>
+            <small>Base de datos oficial</small>
+          </div>
         </div>
       </aside>
     </>
   );
 }
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="mt-ui-icon" aria-hidden="true">
+      <circle cx="11" cy="11" r="6.3" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="m16 16 4 4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="mt-ui-icon" aria-hidden="true">
+      <path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="mt-ui-icon" aria-hidden="true">
+      <path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NavIcon({ name }: { name: string }) {
+  const props = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (name === "home") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="m4.5 11 7.5-6 7.5 6v8h-5v-5h-5v5h-5v-8Z" /></svg>;
+  }
+
+  if (name === "clubs") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="M7 5h10l1.5 4L12 19 5.5 9 7 5Z" /><path {...props} d="M8 9h8M12 5.5V16" /></svg>;
+  }
+
+  if (name === "players") {
+    return <svg viewBox="0 0 24 24"><circle {...props} cx="12" cy="8" r="3" /><path {...props} d="M5.5 19c.7-4 3-6 6.5-6s5.8 2 6.5 6" /></svg>;
+  }
+
+  if (name === "trophy" || name === "award") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="M8 4h8v4.5c0 3-1.7 5.5-4 5.5s-4-2.5-4-5.5V4Z" /><path {...props} d="M8 6H5v1.5c0 2 1.2 3.5 3.2 3.8M16 6h3v1.5c0 2-1.2 3.5-3.2 3.8M12 14v3M9 20h6M10 17h4" /></svg>;
+  }
+
+  if (name === "market") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="M5 8h13M15 5l3 3-3 3M19 16H6M9 13l-3 3 3 3" /></svg>;
+  }
+
+  if (name === "history" || name === "calendar") {
+    return <svg viewBox="0 0 24 24"><circle {...props} cx="12" cy="12" r="8" /><path {...props} d="M12 7v5l3 2" /></svg>;
+  }
+
+  if (name === "stats") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="M5 19V9M10 19V5M15 19v-7M20 19V8" /></svg>;
+  }
+
+  if (name === "tools" || name === "admin") {
+    return <svg viewBox="0 0 24 24"><path {...props} d="m7 17 10-10M7.5 6.5l3 3M13.5 14.5l3 3M5 19l2-2 2 2-2 2H5v-2ZM15 5l2-2 4 4-2 2-4-4Z" /></svg>;
+  }
+
+  return <svg viewBox="0 0 24 24"><circle {...props} cx="12" cy="12" r="8" /></svg>;
+}
+
+

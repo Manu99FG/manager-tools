@@ -31,12 +31,12 @@ const POSITION_COLORS: Record<
   AssignedPosition,
   string
 > = {
-  GK: "bg-yellow-400 text-black",
-  DF: "bg-blue-500 text-white",
-  DM: "bg-cyan-500 text-slate-950",
-  MF: "bg-green-500 text-slate-950",
-  AM: "bg-violet-500 text-white",
-  FW: "bg-red-500 text-white",
+  GK: "bg-[var(--mt-gold)] text-white",
+  DF: "bg-[var(--mt-gold)] text-white",
+  DM: "bg-[var(--mt-gold)] text-white",
+  MF: "bg-[var(--mt-gold)] text-white",
+  AM: "bg-[var(--mt-gold)] text-white",
+  FW: "bg-[var(--mt-gold)] text-white",
 };
 
 /* =========================================================
@@ -103,10 +103,10 @@ export default function FootballPitch({
       getHighestRating(player);
 
     if (rating === highest) {
-      return "font-black text-emerald-400";
+      return "font-black text-emerald-700";
     }
 
-    return "font-semibold text-white";
+    return "font-semibold text-[var(--mt-text)]";
   }
 
   /* =======================================================
@@ -130,8 +130,8 @@ export default function FootballPitch({
           -translate-x-1/2
           rounded-lg
           border
-          border-slate-700
-          bg-slate-950
+          border-[var(--mt-line)]
+          bg-[var(--mt-surface)]
           px-3
           py-2
           shadow-2xl
@@ -152,8 +152,8 @@ export default function FootballPitch({
             rotate-45
             border-b
             border-r
-            border-slate-700
-            bg-slate-950
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -168,12 +168,12 @@ export default function FootballPitch({
             text-ellipsis
             whitespace-nowrap
             border-b
-            border-slate-800
+            border-[var(--mt-line)]
             pb-2
             text-left
             text-xs
             font-bold
-            text-white
+            text-[var(--mt-text)]
           "
         >
           {player.name}
@@ -199,7 +199,7 @@ export default function FootballPitch({
                 font-bold
                 uppercase
                 tracking-wide
-                text-slate-500
+                text-[var(--mt-muted)]
               "
             >
               ST
@@ -229,7 +229,7 @@ export default function FootballPitch({
                 font-bold
                 uppercase
                 tracking-wide
-                text-slate-500
+                text-[var(--mt-muted)]
               "
             >
               TK
@@ -259,7 +259,7 @@ export default function FootballPitch({
                 font-bold
                 uppercase
                 tracking-wide
-                text-slate-500
+                text-[var(--mt-muted)]
               "
             >
               PS
@@ -289,7 +289,7 @@ export default function FootballPitch({
                 font-bold
                 uppercase
                 tracking-wide
-                text-slate-500
+                text-[var(--mt-muted)]
               "
             >
               SH
@@ -319,7 +319,7 @@ export default function FootballPitch({
                 font-bold
                 uppercase
                 tracking-wide
-                text-slate-500
+                text-[var(--mt-muted)]
               "
             >
               FIT
@@ -333,8 +333,8 @@ export default function FootballPitch({
 
                 ${
                   player.fit < 100
-                    ? "text-yellow-400"
-                    : "text-white"
+                    ? "text-yellow-800"
+                    : "text-[var(--mt-text)]"
                 }
               `}
             >
@@ -403,7 +403,7 @@ export default function FootballPitch({
                   justify-center
                   rounded-full
                   border-2
-                  border-white
+                  border-[var(--mt-line)]
                   px-2
                   text-xs
                   font-black
@@ -432,7 +432,7 @@ export default function FootballPitch({
                   text-center
                   text-[11px]
                   font-bold
-                  text-white
+                  text-[var(--mt-text)]
                   drop-shadow-md
                 "
                 title={player.name}
@@ -460,7 +460,7 @@ export default function FootballPitch({
         max-w-[620px]
         rounded-xl
         border-2
-        border-white/70
+        border-[var(--mt-line)]
         bg-green-700
         shadow-xl
       "
@@ -497,7 +497,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-white/[0.025]
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -508,7 +508,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-white/[0.025]
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -519,7 +519,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-white/[0.025]
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -532,7 +532,7 @@ export default function FootballPitch({
             right-0
             top-1/2
             border-t-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -549,7 +549,7 @@ export default function FootballPitch({
             -translate-y-1/2
             rounded-full
             border-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -565,7 +565,7 @@ export default function FootballPitch({
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
-            bg-white
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -584,7 +584,7 @@ export default function FootballPitch({
             border-b-2
             border-l-2
             border-r-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -601,7 +601,7 @@ export default function FootballPitch({
             border-b-2
             border-l-2
             border-r-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -616,7 +616,7 @@ export default function FootballPitch({
             w-1.5
             -translate-x-1/2
             rounded-full
-            bg-white/80
+            bg-[var(--mt-surface)]
           "
         />
 
@@ -635,7 +635,7 @@ export default function FootballPitch({
             border-l-2
             border-r-2
             border-t-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -652,7 +652,7 @@ export default function FootballPitch({
             border-l-2
             border-r-2
             border-t-2
-            border-white/60
+            border-[var(--mt-line)]
           "
         />
 
@@ -667,7 +667,7 @@ export default function FootballPitch({
             w-1.5
             -translate-x-1/2
             rounded-full
-            bg-white/80
+            bg-[var(--mt-surface)]
           "
         />
       </div>

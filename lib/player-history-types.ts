@@ -8,6 +8,10 @@ export type DatabasePlayer = {
     | string
     | null;
 
+  owner_team_code?:
+    | string
+    | null;
+
   created_at: string;
   updated_at: string;
 };
@@ -55,6 +59,12 @@ export type PlayerSnapshot = {
   created_at: string;
 };
 
+export type PlayerMovementType =
+  | "PENDING"
+  | "TRANSFER"
+  | "LOAN"
+  | "LOAN_RETURN";
+
 export type PlayerTransfer = {
   id: string;
 
@@ -67,6 +77,26 @@ export type PlayerTransfer = {
   to_team_code: string;
 
   transfer_date: string;
+
+  fee?: number | null;
+  season_id?: string | null;
+
+  movement_type?: PlayerMovementType;
+
+  owner_team_code?: string | null;
+
+  loan_start_date?: string | null;
+  loan_end_date?: string | null;
+  loan_fee?: number | null;
+
+  purchase_option?: boolean;
+  purchase_option_fee?: number | null;
+
+  parent_movement_id?: string | null;
+  notes?: string | null;
+
+  deal_id?: string | null;
+  deal_role?: "PRIMARY" | "EXCHANGE";
 
   created_at: string;
 };

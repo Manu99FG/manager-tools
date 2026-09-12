@@ -1304,7 +1304,7 @@ export default function PlayerPhotoAdmin({
   }
 
   const previewBox =
-    "relative flex min-h-64 items-end justify-center overflow-hidden rounded-2xl border border-slate-800 bg-slate-900";
+    "relative flex min-h-64 items-end justify-center overflow-hidden rounded-[13px] border border-[var(--mt-line)] bg-[var(--mt-surface)]";
 
   const checkerBackground =
     "bg-[linear-gradient(45deg,#0f172a_25%,transparent_25%),linear-gradient(-45deg,#0f172a_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#0f172a_75%),linear-gradient(-45deg,transparent_75%,#0f172a_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]";
@@ -1313,10 +1313,10 @@ export default function PlayerPhotoAdmin({
     <section
       className="
         mt-6
-        rounded-2xl
+        rounded-[13px]
         border
-        border-slate-800
-        bg-slate-950/70
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
         p-4
 
         sm:p-5
@@ -1329,7 +1329,7 @@ export default function PlayerPhotoAdmin({
             font-bold
             uppercase
             tracking-[0.18em]
-            text-blue-400
+            text-[var(--mt-gold-dark)]
           "
         >
           Administración
@@ -1340,7 +1340,7 @@ export default function PlayerPhotoAdmin({
             mt-1
             text-lg
             font-bold
-            text-white
+            text-[var(--mt-text)]
           "
         >
           Foto del jugador
@@ -1350,7 +1350,7 @@ export default function PlayerPhotoAdmin({
           className="
             mt-1
             text-sm
-            text-slate-400
+            text-[var(--mt-muted)]
           "
         >
           {cleanPlayerName(
@@ -1500,10 +1500,10 @@ export default function PlayerPhotoAdmin({
                 flex
                 items-center
                 justify-center
-                bg-slate-950/55
+                bg-[var(--mt-surface)]
                 text-xs
                 font-bold
-                text-white
+                text-[var(--mt-text)]
                 backdrop-blur-sm
               "
             >
@@ -1517,7 +1517,7 @@ export default function PlayerPhotoAdmin({
         <div
           className="
             mt-5
-            rounded-2xl
+            rounded-[13px]
             border
             border-emerald-800/60
             bg-emerald-950/20
@@ -1528,7 +1528,7 @@ export default function PlayerPhotoAdmin({
             className="
               text-sm
               font-bold
-              text-emerald-300
+              text-emerald-700
             "
           >
             Encuadre automático listo
@@ -1539,7 +1539,7 @@ export default function PlayerPhotoAdmin({
               mt-1
               text-xs
               leading-5
-              text-slate-400
+              text-[var(--mt-muted)]
             "
           >
             La silueta se analiza una sola vez sobre una miniatura
@@ -1567,7 +1567,7 @@ export default function PlayerPhotoAdmin({
               block
               text-sm
               font-semibold
-              text-slate-200
+              text-[var(--mt-text)]
             "
           >
             Seleccionar imagen
@@ -1589,11 +1589,11 @@ export default function PlayerPhotoAdmin({
               w-full
               rounded-xl
               border
-              border-slate-700
-              bg-slate-900
+              border-[var(--mt-line)]
+              bg-[var(--mt-surface)]
               p-3
               text-sm
-              text-slate-300
+              text-[var(--mt-muted)]
             "
           />
         </div>
@@ -1603,8 +1603,8 @@ export default function PlayerPhotoAdmin({
             className="
               rounded-xl
               border
-              border-blue-900
-              bg-blue-950/30
+              border-[var(--mt-gold)]
+              bg-[var(--mt-surface-soft)]
               p-4
             "
           >
@@ -1614,7 +1614,7 @@ export default function PlayerPhotoAdmin({
                 flex
                 justify-between
                 text-sm
-                text-blue-200
+                text-[var(--mt-gold-dark)]
               "
             >
               <span>
@@ -1631,13 +1631,13 @@ export default function PlayerPhotoAdmin({
                 h-2
                 overflow-hidden
                 rounded-full
-                bg-slate-800
+                bg-[var(--mt-surface)]
               "
             >
               <div
                 className="
                   h-full
-                  bg-blue-500
+                  bg-[var(--mt-gold)]
                   transition-all
                 "
                 style={{
@@ -1651,7 +1651,7 @@ export default function PlayerPhotoAdmin({
               className="
                 mt-2
                 text-xs
-                text-slate-400
+                text-[var(--mt-muted)]
               "
             >
               La primera vez puede
@@ -1672,7 +1672,7 @@ export default function PlayerPhotoAdmin({
               px-4
               py-3
               text-sm
-              text-emerald-300
+              text-emerald-700
             "
           >
             {message}
@@ -1689,7 +1689,7 @@ export default function PlayerPhotoAdmin({
               px-4
               py-3
               text-sm
-              text-red-300
+              text-red-700
             "
           >
             {error}
@@ -1718,15 +1718,15 @@ export default function PlayerPhotoAdmin({
             }
             className="
               rounded-xl
-              bg-violet-600
+              bg-[var(--mt-gold)]
               px-5
               py-3
               text-sm
               font-bold
-              text-white
+              text-[var(--mt-surface)]
               transition
 
-              hover:bg-violet-500
+              hover:bg-[var(--mt-gold-dark)]
 
               disabled:cursor-not-allowed
               disabled:opacity-50
@@ -1747,15 +1747,15 @@ export default function PlayerPhotoAdmin({
             }
             className="
               rounded-xl
-              bg-blue-600
+              bg-[var(--mt-gold)]
               px-5
               py-3
               text-sm
               font-bold
-              text-white
+              text-[var(--mt-surface)]
               transition
 
-              hover:bg-blue-500
+              hover:bg-[var(--mt-gold-dark)]
 
               disabled:cursor-not-allowed
               disabled:opacity-50
@@ -1786,7 +1786,7 @@ export default function PlayerPhotoAdmin({
                 py-3
                 text-sm
                 font-bold
-                text-red-300
+                text-red-700
                 transition
 
                 hover:bg-red-950/60
@@ -1822,7 +1822,7 @@ function PreviewCard({
           font-semibold
           uppercase
           tracking-wide
-          text-slate-500
+          text-[var(--mt-muted)]
         "
       >
         {
@@ -1856,7 +1856,7 @@ function Placeholder({
         py-20
         text-center
         text-sm
-        text-slate-500
+        text-[var(--mt-muted)]
       "
     >
       {

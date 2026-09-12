@@ -26,6 +26,11 @@ export const CLUB_NAMES: Record<string, string> = {
   PSV: "PSV Eindhoven",
   RIV: "River Plate",
   RMA: "Real Madrid",
+  ROM: "AS Roma",
+  SAN: "Santos FC",
+  SLB: "SL Benfica",
+  TOT: "Tottenham Hotspur",
+  VAL: "Valencia CF",
 };
 
 export function getClubName(code: string): string {

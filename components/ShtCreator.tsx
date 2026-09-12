@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -23,11 +24,26 @@ import BenchSelector, {
   type BenchSlot,
 } from "@/components/BenchSelector";
 
-import StrategyBuilder, {
-  type Strategy,
-} from "@/components/StrategyBuilder";
+import type { StrategyTactic } from "@/components/StrategyBuilder";
+
+import ChangeBuilder, {
+  type ChangeCondition,
+  type ChangeConditionType,
+  type Comparator,
+  type EsmsChange,
+  type EsmsPosition as ChangeEsmsPosition,
+  type TacticalStyle as ChangeTacticalStyle,
+} from "@/components/ChangeBuilder";
 
 import PlayerNameLink from "@/components/PlayerNameLink";
+
+import {
+  validateOriginalTeamsheet,
+  type OriginalOrder,
+  type OriginalPredicate,
+  type OriginalRosterPlayer,
+  type OriginalSelection,
+} from "@/lib/original-sht-checker";
 
 /* =========================================================
    TIPOS
@@ -47,14 +63,13 @@ type CreatorTab =
   | "subs"
   | "changes";
 
-type TacticalStyle =
-  | "N"
-  | "A"
-  | "C"
-  | "D"
-  | "E"
-  | "L"
-  | "P";
+type TacticalStyle = StrategyTactic;
+
+type ImportStatus = {
+  type: "success" | "error";
+  title: string;
+  detail: string;
+};
 
 type Props = {
   players: GlobalEsmsPlayer[];
@@ -154,6 +169,468 @@ function getPlayerKey(
   return `${player.teamCode}:${player.name}`;
 }
 
+function normalizeSheetName(
+  value: string
+) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleUpperCase("es-ES");
+}
+
+function normalizeCompactName(
+  value: string
+) {
+  return normalizeSheetName(
+    value
+  ).replace(/\s+/g, "");
+}
+
+function findSheetPlayer(
+  roster: GlobalEsmsPlayer[],
+  playerName: string
+) {
+  const compactName =
+    normalizeCompactName(
+      playerName
+    );
+
+  return roster.find(
+    (player) =>
+      normalizeCompactName(
+        player.name
+      ) === compactName ||
+      normalizeSheetName(
+        player.name
+      ) ===
+        normalizeSheetName(
+          playerName
+        )
+  );
+}
+
+function toAssignedPosition(
+  value: string
+): AssignedPosition {
+  const position =
+    value
+      .trim()
+      .toUpperCase();
+
+  if (
+    position === "GK" ||
+    position === "DF" ||
+    position === "DM" ||
+    position === "MF" ||
+    position === "AM" ||
+    position === "FW"
+  ) {
+    return position;
+  }
+
+  return "";
+}
+
+function toTacticalStyle(
+  value: string
+): TacticalStyle {
+  const tactic =
+    value
+      .trim()
+      .toUpperCase();
+
+  if (
+    tactic === "A" ||
+    tactic === "C" ||
+    tactic === "D" ||
+    tactic === "E" ||
+    tactic === "L" ||
+    tactic === "N" ||
+    tactic === "P"
+  ) {
+    return tactic;
+  }
+
+  return "N";
+}
+
+function hasNumericPredicate(
+  predicate: OriginalPredicate
+): predicate is Extract<
+  OriginalPredicate,
+  { operator: string }
+> {
+  return "operator" in predicate;
+}
+
+function hasPositionPredicate(
+  predicate: OriginalPredicate
+): predicate is Extract<
+  OriginalPredicate,
+  { position: string }
+> {
+  return "position" in predicate;
+}
+
+function predicateToChangeCondition(
+  predicate: OriginalPredicate,
+  index: number
+): ChangeCondition | null {
+  const kind =
+    predicate.kind.toUpperCase();
+
+  if (
+    hasNumericPredicate(
+      predicate
+    )
+  ) {
+    if (
+      predicate.operator !== "=" &&
+      predicate.operator !== ">=" &&
+      predicate.operator !== "<="
+    ) {
+      return null;
+    }
+
+    if (
+      kind !== "MIN" &&
+      kind !== "SCORE" &&
+      kind !== "SHOTS"
+    ) {
+      return null;
+    }
+
+    return {
+      id: index,
+      type:
+        kind as ChangeConditionType,
+      operator:
+        predicate.operator as Comparator,
+      value:
+        predicate.rawValue ||
+        String(predicate.value),
+    };
+  }
+
+  if (
+    hasPositionPredicate(
+      predicate
+    )
+  ) {
+    const normalizedKind =
+      kind === "INJURY"
+        ? "INJURED"
+        : kind;
+
+    if (
+      normalizedKind !== "RED" &&
+      normalizedKind !== "YELLOW" &&
+      normalizedKind !== "INJURED"
+    ) {
+      return null;
+    }
+
+    return {
+      id: index,
+      type:
+        normalizedKind as ChangeConditionType,
+      operator: "=",
+      value:
+        predicate.position,
+    };
+  }
+
+  return null;
+}
+
+function orderToChange(
+  order: OriginalOrder,
+  id: number
+): EsmsChange | null {
+  const action =
+    order.action.toUpperCase();
+
+  const conditions =
+    order.predicates.map(
+      (predicate, index) =>
+        predicateToChangeCondition(
+          predicate,
+          id * 100 + index
+        )
+    );
+
+  if (
+    conditions.some(
+      (condition) =>
+        condition === null
+    )
+  ) {
+    return null;
+  }
+
+  const base = {
+    id,
+    subOut: "",
+    subIn: "",
+    subPosition: "MF" as ChangeEsmsPosition,
+    tactic: "N" as ChangeTacticalStyle,
+    changePosPlayer: "",
+    changePosPosition: "MF" as ChangeEsmsPosition,
+    aggression: "",
+    conditions:
+      conditions as ChangeCondition[],
+  };
+
+  if (action === "TACTIC") {
+    const tactic =
+      toTacticalStyle(
+        order.arguments[0] ??
+          ""
+      );
+
+    return {
+      ...base,
+      actionType: "TACTIC",
+      tactic:
+        tactic as ChangeTacticalStyle,
+    };
+  }
+
+  if (action === "SUB") {
+    const position =
+      toAssignedPosition(
+        order.arguments[2] ??
+          ""
+      );
+
+    if (!position) {
+      return null;
+    }
+
+    return {
+      ...base,
+      actionType: "SUB",
+      subOut:
+        order.arguments[0] ??
+        "",
+      subIn:
+        order.arguments[1] ??
+        "",
+      subPosition:
+        position as ChangeEsmsPosition,
+    };
+  }
+
+  if (action === "CHANGEPOS") {
+    const position =
+      toAssignedPosition(
+        order.arguments[1] ??
+          ""
+      );
+
+    if (!position) {
+      return null;
+    }
+
+    return {
+      ...base,
+      actionType: "CHANGEPOS",
+      changePosPlayer:
+        order.arguments[0] ??
+        "",
+      changePosPosition:
+        position as ChangeEsmsPosition,
+    };
+  }
+
+  if (
+    action === "CHANGEAGG"
+  ) {
+    return {
+      ...base,
+      actionType: "CHANGEAGG",
+      aggression:
+        order.arguments[0] ??
+        "",
+    };
+  }
+
+  return null;
+}
+
+function serializeChange(
+  change: EsmsChange
+) {
+  const conditions =
+    change.conditions.map(
+      (condition) => {
+        if (
+          condition.type === "MIN" ||
+          condition.type === "SCORE" ||
+          condition.type === "SHOTS"
+        ) {
+          return [
+            condition.type,
+            condition.operator,
+            condition.value,
+          ].join(" ");
+        }
+
+        return [
+          condition.type,
+          condition.value,
+        ].join(" ");
+      }
+    );
+
+  if (conditions.length === 0) {
+    return "";
+  }
+
+  switch (change.actionType) {
+    case "SUB":
+      return [
+        "SUB",
+        change.subOut,
+        change.subIn,
+        change.subPosition,
+        "IF",
+        ...conditions,
+      ].join(" ");
+
+    case "TACTIC":
+      return [
+        "TACTIC",
+        change.tactic,
+        "IF",
+        ...conditions,
+      ].join(" ");
+
+    case "CHANGEPOS":
+      return [
+        "CHANGEPOS",
+        change.changePosPlayer,
+        change.changePosPosition,
+        "IF",
+        ...conditions,
+      ].join(" ");
+
+    case "CHANGEAGG":
+      return [
+        "CHANGEAGG",
+        change.aggression,
+        "IF",
+        ...conditions,
+      ].join(" ");
+
+    default:
+      return "";
+  }
+}
+
+function serializeImportedOrder(
+  order: OriginalOrder
+) {
+  const predicates =
+    order.predicates.flatMap(
+      (predicate) => {
+        const kind =
+          predicate.kind.toUpperCase();
+
+        if (
+          hasNumericPredicate(
+            predicate
+          )
+        ) {
+          return [
+            kind,
+            predicate.operator,
+            predicate.rawValue ||
+              String(predicate.value),
+          ];
+        }
+
+        if (
+          hasPositionPredicate(
+            predicate
+          )
+        ) {
+          return [
+            kind,
+            predicate.position,
+          ];
+        }
+
+        return [kind];
+      }
+    );
+
+  return [
+    order.action.toUpperCase(),
+    ...order.arguments,
+    "IF",
+    ...predicates,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getSheetPlayerName(
+  player: GlobalEsmsPlayer
+) {
+  return player.name.replace(
+    /\s+/g,
+    "_"
+  );
+}
+
+function buildSelectionMap(
+  selections: OriginalSelection[],
+  teamPlayers: GlobalEsmsPlayer[]
+) {
+  const assignments: Record<
+    string,
+    AssignedPosition
+  > = {};
+
+  const missing: string[] = [];
+
+  for (const selection of selections) {
+    const player =
+      findSheetPlayer(
+        teamPlayers,
+        selection.playerName
+      );
+
+    const position =
+      toAssignedPosition(
+        selection.position
+      );
+
+    if (
+      !player ||
+      !position
+    ) {
+      missing.push(
+        selection.playerName
+      );
+      continue;
+    }
+
+    assignments[
+      getPlayerKey(
+        player
+      )
+    ] = position;
+  }
+
+  return {
+    assignments,
+    missing,
+  };
+}
+
 function createEmptyBench(): BenchSlot[] {
   return Array.from(
     {
@@ -183,49 +660,49 @@ function getPositionClass(
       return `
         border-yellow-500/40
         bg-yellow-500/10
-        text-yellow-300
+        text-yellow-800
       `;
 
     case "DF":
       return `
-        border-blue-500/40
-        bg-blue-500/10
-        text-blue-300
+        border-[var(--mt-gold)]
+        bg-[var(--mt-surface-soft)]
+        text-[var(--mt-gold-dark)]
       `;
 
     case "DM":
       return `
-        border-cyan-500/40
-        bg-cyan-500/10
-        text-cyan-300
+        border-[var(--mt-gold)]
+        bg-[var(--mt-surface-soft)]
+        text-[var(--mt-gold-dark)]
       `;
 
     case "MF":
       return `
         border-emerald-500/40
         bg-emerald-500/10
-        text-emerald-300
+        text-emerald-700
       `;
 
     case "AM":
       return `
-        border-violet-500/40
-        bg-violet-500/10
-        text-violet-300
+        border-[var(--mt-gold)]
+        bg-[var(--mt-surface-soft)]
+        text-[var(--mt-gold-dark)]
       `;
 
     case "FW":
       return `
         border-red-500/40
         bg-red-500/10
-        text-red-300
+        text-red-700
       `;
 
     default:
       return `
-        border-slate-700
-        bg-slate-800
-        text-slate-300
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
+        text-[var(--mt-muted)]
       `;
   }
 }
@@ -234,10 +711,62 @@ function getRatingClass(
   value: number
 ) {
   if (value >= 16) {
-    return "font-bold text-emerald-400";
+    return "font-bold text-emerald-700";
   }
 
-  return "text-slate-300";
+  return "text-[var(--mt-muted)]";
+}
+
+
+function isUnavailable(
+  player: GlobalEsmsPlayer
+) {
+  return (
+    player.inj > 0 ||
+    player.sus > 0
+  );
+}
+
+function getUnavailableLabel(
+  player: GlobalEsmsPlayer
+) {
+  const reasons: string[] = [];
+
+  if (player.inj > 0) {
+    reasons.push(
+      `LESIONADO (${player.inj})`
+    );
+  }
+
+  if (player.sus > 0) {
+    reasons.push(
+      `SANCIONADO (${player.sus})`
+    );
+  }
+
+  return reasons.join(
+    " · "
+  );
+}
+
+function getUnavailableMessage(
+  player: GlobalEsmsPlayer
+) {
+  const reasons: string[] = [];
+
+  if (player.inj > 0) {
+    reasons.push(
+      `lesionado (${player.inj} partido${player.inj === 1 ? "" : "s"} pendiente${player.inj === 1 ? "" : "s"})`
+    );
+  }
+
+  if (player.sus > 0) {
+    reasons.push(
+      `sancionado (${player.sus} partido${player.sus === 1 ? "" : "s"} pendiente${player.sus === 1 ? "" : "s"})`
+    );
+  }
+
+  return `${player.name} está ${reasons.join(" y ")}.`;
 }
 
 /* =========================================================
@@ -251,6 +780,15 @@ export default function ShtCreator({
     selectedTeam,
     setSelectedTeam,
   ] = useState("");
+
+
+  const checkerFileInputRef =
+    useRef<HTMLInputElement>(
+      null
+    );
+
+  const isImportingRef =
+    useRef(false);
 
   const [
     tacticalStyle,
@@ -292,10 +830,32 @@ export default function ShtCreator({
     );
 
   const [
-    strategies,
-    setStrategies,
+    changes,
+    setChanges,
   ] =
-    useState<Strategy[]>([]);
+    useState<EsmsChange[]>([]);
+
+  const [
+    penaltyTaker,
+    setPenaltyTaker,
+  ] = useState("");
+
+  const [
+    initialAggression,
+    setInitialAggression,
+  ] = useState("10");
+
+  const [
+    importStatus,
+    setImportStatus,
+  ] = useState<ImportStatus | null>(
+    null
+  );
+
+  const [
+    importedAdvancedOrders,
+    setImportedAdvancedOrders,
+  ] = useState<string[]>([]);
 
   const [
     positions,
@@ -558,6 +1118,24 @@ export default function ShtCreator({
     ]);
 
   /* =======================================================
+     JUGADORES DISPONIBLES
+
+     El creador usa los valores INJ / SUS del roster actual.
+     Un jugador con cualquiera de los dos campos > 0 no puede
+     ser titular ni suplente.
+  ======================================================= */
+
+  const availableTeamPlayers =
+    useMemo(() => {
+      return teamPlayers.filter(
+        (player) =>
+          !isUnavailable(
+            player
+          )
+      );
+    }, [teamPlayers]);
+
+  /* =======================================================
      OCULTAR BAJAS
   ======================================================= */
 
@@ -569,13 +1147,10 @@ export default function ShtCreator({
         return teamPlayers;
       }
 
-      return teamPlayers.filter(
-        (player) =>
-          player.sus <= 0 &&
-          player.inj <= 0
-      );
+      return availableTeamPlayers;
     }, [
       teamPlayers,
+      availableTeamPlayers,
       hideUnavailable,
     ]);
 
@@ -584,6 +1159,12 @@ export default function ShtCreator({
   ======================================================= */
 
   useEffect(() => {
+    if (isImportingRef.current) {
+      isImportingRef.current =
+        false;
+      return;
+    }
+
     setAssignedPositions(
       {}
     );
@@ -592,12 +1173,110 @@ export default function ShtCreator({
       createEmptyBench()
     );
 
-    setStrategies([]);
+    setChanges([]);
+
+    setPenaltyTaker("");
+
+    setInitialAggression("10");
+
+    setImportStatus(null);
+
+    setImportedAdvancedOrders([]);
 
     setActiveTab(
       "starters"
     );
   }, [selectedTeam]);
+
+  /* =======================================================
+     ELIMINAR BAJAS YA SELECCIONADAS
+
+     Si la plantilla cambia y un jugador pasa a tener INJ/SUS,
+     se elimina automáticamente de titulares y banquillo.
+  ======================================================= */
+
+  useEffect(() => {
+    const unavailableKeys =
+      new Set(
+        teamPlayers
+          .filter(
+            isUnavailable
+          )
+          .map(
+            getPlayerKey
+          )
+      );
+
+    if (
+      unavailableKeys.size ===
+      0
+    ) {
+      return;
+    }
+
+    setAssignedPositions(
+      (previous) => {
+        let changed =
+          false;
+
+        const next = {
+          ...previous,
+        };
+
+        for (
+          const key of
+            unavailableKeys
+        ) {
+          if (
+            next[key]
+          ) {
+            next[key] =
+              "";
+            changed =
+              true;
+          }
+        }
+
+        return changed
+          ? next
+          : previous;
+      }
+    );
+
+    setBench(
+      (previous) => {
+        let changed =
+          false;
+
+        const next =
+          previous.map(
+            (slot) => {
+              if (
+                slot.playerKey &&
+                unavailableKeys.has(
+                  slot.playerKey
+                )
+              ) {
+                changed =
+                  true;
+
+                return {
+                  ...slot,
+                  playerKey:
+                    "",
+                };
+              }
+
+              return slot;
+            }
+          );
+
+        return changed
+          ? next
+          : previous;
+      }
+    );
+  }, [teamPlayers]);
 
   /* =======================================================
      TITULARES
@@ -699,6 +1378,21 @@ export default function ShtCreator({
     position:
       AssignedPosition
   ) {
+    if (
+      position !== "" &&
+      isUnavailable(
+        player
+      )
+    ) {
+      alert(
+        getUnavailableMessage(
+          player
+        )
+      );
+
+      return;
+    }
+
     const key =
       getPlayerKey(
         player
@@ -734,8 +1428,422 @@ export default function ShtCreator({
   }
 
   /* =======================================================
+     COMPROBAR ALINEACIÓN IMPORTADA
+
+     El botón "Comprobar" abre directamente el selector de
+     archivos. No crea una pestaña ni un apartado adicional.
+  ======================================================= */
+
+  async function handleCheckImportedFile(
+    file: File
+  ) {
+    const buffer =
+      await file.arrayBuffer();
+
+    const teamsheetText =
+      new TextDecoder(
+        "windows-1252"
+      ).decode(
+        buffer
+      );
+
+    const teamCode =
+      teamsheetText
+        .split(/\r?\n/)
+        .map(
+          (line) =>
+            line.trim()
+        )
+        .find(Boolean)
+        ?.toUpperCase() ??
+      "";
+
+    const importedTeamPlayers =
+      players.filter(
+        (player) =>
+          player.teamCode.toUpperCase() ===
+          teamCode
+      );
+
+    const roster:
+      OriginalRosterPlayer[] =
+      importedTeamPlayers.map(
+        (player) => ({
+          name:
+            getSheetPlayerName(
+              player
+            ),
+
+          st:
+            player.st,
+
+          tk:
+            player.tk,
+
+          ps:
+            player.ps,
+
+          sh:
+            player.sh,
+
+          injury:
+            player.inj,
+
+          suspension:
+            player.sus,
+        })
+      );
+
+    const result =
+      validateOriginalTeamsheet({
+        teamsheetText,
+
+        roster,
+
+        league: {
+          Positions:
+            1,
+
+          Tactic_7:
+            1,
+
+          Max_Skill:
+            30,
+
+          Min_DF:
+            2,
+
+          Max_DF:
+            8,
+
+          Min_MF:
+            2,
+
+          Max_MF:
+            8,
+
+          Max_DM:
+            8,
+
+          Max_AM:
+            8,
+
+          Min_FW:
+            0,
+
+          Max_FW:
+            5,
+        },
+      });
+
+    if (
+      !result.valid
+    ) {
+      const lineText =
+        result.error.line !==
+        null
+          ? " Línea " + result.error.line + "."
+          : "";
+
+      setImportStatus({
+        type: "error",
+        title: "No se pudo cargar la alineación",
+        detail:
+          file.name + ": " + result.error.message + "." + lineText,
+      });
+
+      return;
+    }
+
+    const starterMap =
+      buildSelectionMap(
+        result.teamsheet.starters,
+        importedTeamPlayers
+      );
+
+    const substituteMap =
+      buildSelectionMap(
+        result.teamsheet.substitutes,
+        importedTeamPlayers
+      );
+
+    const nextBench =
+      createEmptyBench();
+
+    result.teamsheet.substitutes
+      .slice(0, 5)
+      .forEach(
+        (substitute, index) => {
+          const player =
+            findSheetPlayer(
+              importedTeamPlayers,
+              substitute.playerName
+            );
+
+          const position =
+            toAssignedPosition(
+              substitute.position
+            );
+
+          if (
+            player &&
+            position
+          ) {
+            nextBench[index] = {
+              ...nextBench[index],
+              position,
+              playerKey:
+                getPlayerKey(
+                  player
+                ),
+            };
+          }
+        }
+      );
+
+    const penaltyPlayer =
+      findSheetPlayer(
+        importedTeamPlayers,
+        result.teamsheet.penaltyTaker
+      );
+
+    const nextChanges:
+      EsmsChange[] = [];
+    const advancedOrders:
+      string[] = [];
+
+    setInitialAggression("10");
+
+    result.teamsheet.orders.forEach(
+      (order, index) => {
+        if (order.action.toUpperCase() === "AGG") {
+          setInitialAggression(
+            order.arguments[0] ??
+              "10"
+          );
+          return;
+        }
+
+        const change =
+          orderToChange(
+            order,
+            index + 1
+          );
+
+        if (change) {
+          nextChanges.push(
+            change
+          );
+        } else {
+          advancedOrders.push(
+            serializeImportedOrder(
+              order
+            )
+          );
+        }
+      }
+    );
+
+    const missing = [
+      ...starterMap.missing,
+      ...substituteMap.missing,
+      ...(
+        penaltyPlayer
+          ? []
+          : [
+              result.teamsheet.penaltyTaker,
+            ]
+      ),
+    ];
+
+    isImportingRef.current =
+      true;
+
+    setSelectedTeam(
+      result.teamsheet.team
+    );
+
+    setTacticalStyle(
+      toTacticalStyle(
+        result.teamsheet.tactic
+      )
+    );
+
+    setAssignedPositions(
+      starterMap.assignments
+    );
+
+    setBench(
+      nextBench
+    );
+
+    setChanges(
+      nextChanges
+    );
+
+    setPenaltyTaker(
+      penaltyPlayer
+        ? getPlayerKey(
+            penaltyPlayer
+          )
+        : ""
+    );
+
+    setImportedAdvancedOrders(
+      advancedOrders
+    );
+
+    setHideUnavailable(false);
+
+    setActiveTab(
+      "starters"
+    );
+
+    setImportStatus({
+      type:
+        missing.length > 0
+          ? "error"
+          : "success",
+      title:
+        missing.length > 0
+          ? "Alineación cargada con avisos"
+          : "Alineación cargada en el creador",
+      detail:
+        [
+          file.name + ": " + result.teamsheet.starters.length + " titulares, " + result.teamsheet.substitutes.length + " suplentes, penalti y " + result.teamsheet.orders.length + " órdenes importadas.",
+          advancedOrders.length > 0
+            ? advancedOrders.length + " órdenes avanzadas se han conservado y se incluirán al descargar el archivo."
+            : "Todas las órdenes se han cargado: las simples aparecen como controles y las avanzadas se conservan para la descarga.",
+          missing.length > 0
+            ? "Revisa estos nombres no encontrados: " + missing.join(", ") + "."
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+    });
+  }
+
+  /* =======================================================
      GENERAR
   ======================================================= */
+
+  function buildTeamsheetText() {
+    const playerByKey =
+      new Map(
+        teamPlayers.map(
+          (player) => [
+            getPlayerKey(
+              player
+            ),
+            player,
+          ]
+        )
+      );
+
+    const starterLines =
+      pitchPlayers.map(
+        (item) =>
+          item.position +
+          " " +
+          getSheetPlayerName(
+            item.player
+          )
+      );
+
+    const benchLines =
+      completedBench.map(
+        (slot) => {
+          const player =
+            playerByKey.get(
+              slot.playerKey
+            );
+
+          if (!player) {
+            return "";
+          }
+
+          return (
+            slot.position +
+            " " +
+            getSheetPlayerName(
+              player
+            )
+          );
+        }
+      );
+
+    const penaltyPlayer =
+      penaltyTaker
+        ? playerByKey.get(
+            penaltyTaker
+          )
+        : undefined;
+
+    const changeLines =
+      changes
+        .map(
+          serializeChange
+        )
+        .filter(Boolean);
+
+    return [
+      selectedTeam,
+      tacticalStyle,
+      ...starterLines,
+      ...benchLines,
+      "PK: " +
+        (penaltyPlayer
+          ? getSheetPlayerName(
+              penaltyPlayer
+            )
+          : ""),
+      ...(initialAggression
+        ? ["AGG " + initialAggression]
+        : []),
+      ...changeLines,
+      ...importedAdvancedOrders,
+      "",
+    ].join("\r\n");
+  }
+
+  function downloadTeamsheet(
+    text: string
+  ) {
+    const blob =
+      new Blob(
+        [text],
+        {
+          type: "text/plain;charset=windows-1252",
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+    link.href = url;
+    link.download =
+      selectedTeam.toUpperCase() +
+      "sht.txt";
+
+    document.body.appendChild(
+      link
+    );
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(
+      url
+    );
+  }
 
   function handleGenerate() {
     if (
@@ -748,12 +1856,72 @@ export default function ShtCreator({
       return;
     }
 
+    const unavailableStarters =
+      selectedStarters.filter(
+        isUnavailable
+      );
+
+    if (
+      unavailableStarters.length >
+      0
+    ) {
+      alert(
+        "Alineación no válida.\n\n" +
+          unavailableStarters
+            .map(
+              getUnavailableMessage
+            )
+            .join("\n")
+      );
+
+      return;
+    }
+
+    const benchPlayerKeys =
+      new Set(
+        completedBench.map(
+          (slot) =>
+            slot.playerKey
+        )
+      );
+
+    const unavailableBench =
+      teamPlayers.filter(
+        (player) =>
+          benchPlayerKeys.has(
+            getPlayerKey(
+              player
+            )
+          ) &&
+          isUnavailable(
+            player
+          )
+      );
+
+    if (
+      unavailableBench.length >
+      0
+    ) {
+      alert(
+        "Banquillo no válido.\n\n" +
+          unavailableBench
+            .map(
+              getUnavailableMessage
+            )
+            .join("\n")
+      );
+
+      return;
+    }
+
     if (
       selectedStarters.length !==
       11
     ) {
       alert(
-        `Debes seleccionar exactamente 11 titulares. Actualmente tienes ${selectedStarters.length}.`
+        "Debes seleccionar exactamente 11 titulares. Actualmente tienes " +
+          selectedStarters.length +
+          "."
       );
 
       return;
@@ -782,15 +1950,108 @@ export default function ShtCreator({
       5
     ) {
       alert(
-        `Debes completar los 5 jugadores del banquillo. Actualmente tienes ${completedBench.length}.`
+        "Debes completar los 5 jugadores del banquillo. Actualmente tienes " +
+          completedBench.length +
+          "."
       );
 
       return;
     }
 
-    alert(
-      `Alineación válida.\n\nEquipo: ${selectedTeam}\nTáctica: ${tacticalStyle}\nTitulares: ${selectedStarters.length}\nSuplentes: ${completedBench.length}\nEstrategias: ${strategies.length}\n\nEl siguiente paso será generar el archivo .sht real.`
+    if (!penaltyTaker) {
+      alert(
+        "Elige el lanzador de penaltis antes de generar el archivo."
+      );
+
+      return;
+    }
+
+    const teamsheetText =
+      buildTeamsheetText();
+
+    const roster:
+      OriginalRosterPlayer[] =
+      teamPlayers.map(
+        (player) => ({
+          name:
+            getSheetPlayerName(
+              player
+            ),
+          st:
+            player.st,
+          tk:
+            player.tk,
+          ps:
+            player.ps,
+          sh:
+            player.sh,
+          injury:
+            player.inj,
+          suspension:
+            player.sus,
+        })
+      );
+
+    const result =
+      validateOriginalTeamsheet({
+        teamsheetText,
+        roster,
+        league: {
+          Positions:
+            1,
+
+          Tactic_7:
+            1,
+
+          Max_Skill:
+            30,
+          Min_DF:
+            2,
+          Max_DF:
+            8,
+          Min_MF:
+            2,
+          Max_MF:
+            8,
+          Max_DM:
+            8,
+          Max_AM:
+            8,
+          Min_FW:
+            0,
+          Max_FW:
+            5,
+        },
+      });
+
+    if (!result.valid) {
+      const lineText =
+        result.error.line !==
+        null
+          ? "\nLínea: " +
+            result.error.line
+          : "";
+
+      alert(
+        "No se ha descargado el archivo porque la alineación generada no es válida para el simulador.\n\n" +
+          result.error.message +
+          lineText
+      );
+
+      return;
+    }
+
+    downloadTeamsheet(
+      teamsheetText
     );
+
+    setImportStatus({
+      type: "success",
+      title: "Archivo generado",
+      detail:
+        selectedTeam.toUpperCase() +
+        "sht.txt se ha descargado en formato válido para el simulador.",
+    });
   }
 
   /* =======================================================
@@ -806,8 +2067,8 @@ export default function ShtCreator({
         overflow-hidden
         rounded-xl
         border
-        border-slate-800
-        bg-slate-900
+        border-[var(--mt-line)]
+        bg-[var(--mt-surface)]
 
         xl:grid-cols-[minmax(0,1.55fr)_minmax(420px,1fr)]
       "
@@ -820,7 +2081,7 @@ export default function ShtCreator({
         className="
           min-w-0
           border-b
-          border-slate-800
+          border-[var(--mt-line)]
 
           xl:border-b-0
           xl:border-r
@@ -831,7 +2092,7 @@ export default function ShtCreator({
         <div
           className="
             border-b
-            border-slate-800
+            border-[var(--mt-line)]
             p-4
           "
         >
@@ -843,7 +2104,7 @@ export default function ShtCreator({
 
               sm:grid-cols-2
 
-              lg:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_auto_auto]
+              lg:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_minmax(170px,1fr)_minmax(150px,1fr)_auto_auto_auto_auto]
               lg:items-end
             "
           >
@@ -858,7 +2119,7 @@ export default function ShtCreator({
                   font-semibold
                   uppercase
                   tracking-wide
-                  text-slate-500
+                  text-[var(--mt-muted)]
                 "
               >
                 Equipo
@@ -880,15 +2141,15 @@ export default function ShtCreator({
                   w-full
                   rounded-lg
                   border
-                  border-slate-700
-                  bg-slate-950
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
                   px-3
                   py-2.5
                   text-sm
-                  text-white
+                  text-[var(--mt-text)]
                   outline-none
 
-                  focus:border-blue-500
+                  focus:border-[var(--mt-gold)]
                 "
               >
                 <option value="">
@@ -930,7 +2191,7 @@ export default function ShtCreator({
                   font-semibold
                   uppercase
                   tracking-wide
-                  text-slate-500
+                  text-[var(--mt-muted)]
                 "
               >
                 Táctica inicial
@@ -952,15 +2213,15 @@ export default function ShtCreator({
                   w-full
                   rounded-lg
                   border
-                  border-slate-700
-                  bg-slate-950
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
                   px-3
                   py-2.5
                   text-sm
-                  text-white
+                  text-[var(--mt-text)]
                   outline-none
 
-                  focus:border-blue-500
+                  focus:border-[var(--mt-gold)]
                 "
               >
                 {TACTICS.map(
@@ -982,6 +2243,146 @@ export default function ShtCreator({
               </select>
             </div>
 
+            {/* LANZADOR DE PENALTIS */}
+
+            <div>
+              <label
+                className="
+                  mb-1.5
+                  block
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-[var(--mt-muted)]
+                "
+              >
+                Penaltis
+              </label>
+
+              <select
+                value={
+                  penaltyTaker
+                }
+                onChange={(
+                  event
+                ) =>
+                  setPenaltyTaker(
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  !selectedTeam
+                }
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
+                  px-3
+                  py-2.5
+                  text-sm
+                  text-[var(--mt-text)]
+                  outline-none
+
+                  disabled:opacity-50
+                  focus:border-[var(--mt-gold)]
+                "
+              >
+                <option value="">
+                  Sin elegir
+                </option>
+
+                {teamPlayers.map(
+                  (player) => (
+                    <option
+                      key={
+                        getPlayerKey(
+                          player
+                        )
+                      }
+                      value={
+                        getPlayerKey(
+                          player
+                        )
+                      }
+                    >
+                      {
+                        player.name
+                      }
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
+            {/* AGRESIVIDAD INICIAL */}
+
+            <div>
+              <label
+                className="
+                  mb-1.5
+                  block
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-[var(--mt-muted)]
+                "
+              >
+                Agresividad inicial
+              </label>
+
+              <select
+                value={
+                  initialAggression
+                }
+                onChange={(
+                  event
+                ) =>
+                  setInitialAggression(
+                    event.target
+                      .value
+                  )
+                }
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
+                  px-3
+                  py-2.5
+                  text-sm
+                  text-[var(--mt-text)]
+                  outline-none
+
+                  focus:border-[var(--mt-gold)]
+                "
+              >
+                <option value="">
+                  Sin AGG
+                </option>
+
+                {Array.from(
+                  { length: 20 },
+                  (_, index) =>
+                    String(index + 1)
+                ).map(
+                  (value) => (
+                    <option
+                      key={value}
+                      value={value}
+                    >
+                      {value}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
             {/* OCULTAR BAJAS */}
 
             <label
@@ -993,11 +2394,11 @@ export default function ShtCreator({
                 gap-2
                 rounded-lg
                 border
-                border-slate-700
-                bg-slate-950
+                border-[var(--mt-line)]
+                bg-[var(--mt-surface)]
                 px-3
                 text-sm
-                text-slate-300
+                text-[var(--mt-muted)]
               "
             >
               <input
@@ -1033,20 +2434,121 @@ export default function ShtCreator({
               className="
                 min-h-[42px]
                 rounded-lg
-                bg-blue-600
+                bg-[var(--mt-gold)]
                 px-5
                 text-sm
                 font-bold
-                text-white
+                text-[var(--mt-surface)]
                 transition
 
-                hover:bg-blue-500
+                hover:bg-[var(--mt-gold-dark)]
               "
             >
               Generar
             </button>
+
+            {/* COMPROBAR ALINEACIÓN ESCRITA A MANO */}
+
+            <input
+              ref={
+                checkerFileInputRef
+              }
+              type="file"
+              accept=".txt,.sht,text/plain"
+              className="hidden"
+              onChange={(
+                event
+              ) => {
+                const file =
+                  event.target.files?.[0];
+
+                if (file) {
+                  void handleCheckImportedFile(
+                    file
+                  );
+                }
+
+                event.target.value =
+                  "";
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  checkerFileInputRef.current
+                ) {
+                  checkerFileInputRef.current.value =
+                    "";
+
+                  checkerFileInputRef.current.click();
+                }
+              }}
+              className="
+                min-h-[42px]
+                rounded-lg
+                border
+                border-[var(--mt-gold)]
+                bg-[var(--mt-surface-soft)]
+                px-5
+                text-sm
+                font-bold
+                text-[var(--mt-gold-dark)]
+                transition
+
+                hover:bg-[var(--mt-surface-soft)]
+                hover:text-[var(--mt-gold-dark)]
+              "
+            >
+              Cargar .sht
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  "/alineaciones";
+              }}
+              className="
+                min-h-[42px]
+                rounded-lg
+                border
+                border-emerald-500/40
+                bg-emerald-500/10
+                px-5
+                text-sm
+                font-bold
+                text-emerald-700
+                transition
+
+                hover:bg-emerald-500/20
+                hover:text-emerald-700
+              "
+            >
+              Enviar alineación
+            </button>
           </div>
         </div>
+
+        {importStatus && (
+          <div
+            className={
+              "mx-4 mt-4 rounded-xl border p-4 text-sm " +
+              (importStatus.type === "success"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-800"
+                : "border-emerald-500/30 bg-emerald-500/10 text-amber-800")
+            }
+          >
+            <div className="font-bold">
+              {importStatus.title}
+            </div>
+
+            <p className="mt-1 leading-relaxed">
+              {importStatus.detail}
+            </p>
+          </div>
+        )}
 
         {/* SIN EQUIPO */}
 
@@ -1066,7 +2568,7 @@ export default function ShtCreator({
                 className="
                   text-lg
                   font-bold
-                  text-white
+                  text-[var(--mt-text)]
                 "
               >
                 Selecciona un equipo
@@ -1077,7 +2579,7 @@ export default function ShtCreator({
                   mt-2
                   max-w-md
                   text-sm
-                  text-slate-500
+                  text-[var(--mt-muted)]
                 "
               >
                 Selecciona una plantilla
@@ -1105,13 +2607,13 @@ export default function ShtCreator({
             >
               <thead
                 className="
-                  bg-slate-950/80
+                  bg-[var(--mt-surface)]
                 "
               >
                 <tr
                   className="
                     border-b
-                    border-slate-800
+                    border-[var(--mt-line)]
                   "
                 >
                   <TableHeader>
@@ -1176,18 +2678,32 @@ export default function ShtCreator({
                         key
                       ] ?? "";
 
+                    const unavailable =
+                      isUnavailable(
+                        player
+                      );
+
+                    const unavailableLabel =
+                      getUnavailableLabel(
+                        player
+                      );
+
                     return (
                       <tr
                         key={
                           key
                         }
-                        className="
+                        className={`
                           border-b
-                          border-slate-800/70
+                          border-[var(--mt-line)]
                           transition
 
-                          hover:bg-slate-800/40
-                        "
+                          ${
+                            unavailable
+                              ? "bg-red-950/10 opacity-70"
+                              : "hover:bg-[var(--mt-surface-soft)]"
+                          }
+                        `}
                       >
                         {/* SELECCIÓN */}
 
@@ -1201,6 +2717,14 @@ export default function ShtCreator({
                           <select
                             value={
                               assignedPosition
+                            }
+                            disabled={
+                              unavailable
+                            }
+                            title={
+                              unavailable
+                                ? unavailableLabel
+                                : "Asignar posición"
                             }
                             onChange={(
                               event
@@ -1225,6 +2749,12 @@ export default function ShtCreator({
                               ${getPositionClass(
                                 assignedPosition
                               )}
+
+                              ${
+                                unavailable
+                                  ? "cursor-not-allowed opacity-40"
+                                  : ""
+                              }
                             `}
                           >
                             {ASSIGNED_POSITIONS.map(
@@ -1240,8 +2770,8 @@ export default function ShtCreator({
                                     option.value
                                   }
                                   className="
-                                    bg-slate-950
-                                    text-white
+                                    bg-[var(--mt-surface)]
+                                    text-[var(--mt-text)]
                                   "
                                 >
                                   {
@@ -1311,14 +2841,14 @@ export default function ShtCreator({
                               }
                               className="
                                 font-semibold
-                                text-slate-100
+                                text-[var(--mt-text)]
                               "
                             />
 
                             <span
                               className="
                                 text-xs
-                                text-slate-500
+                                text-[var(--mt-muted)]
                               "
                             >
                               (
@@ -1327,6 +2857,29 @@ export default function ShtCreator({
                               }
                               )
                             </span>
+
+                            {unavailable && (
+                              <span
+                                className="
+                                  ml-1
+                                  rounded-md
+                                  border
+                                  border-red-500/30
+                                  bg-red-500/10
+                                  px-1.5
+                                  py-0.5
+                                  text-[9px]
+                                  font-black
+                                  uppercase
+                                  tracking-wide
+                                  text-red-700
+                                "
+                              >
+                                {
+                                  unavailableLabel
+                                }
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -1356,7 +2909,7 @@ export default function ShtCreator({
                             className="
                               ml-1
                               text-xs
-                              text-slate-500
+                              text-[var(--mt-muted)]
                             "
                           >
                             (
@@ -1393,7 +2946,7 @@ export default function ShtCreator({
                             className="
                               ml-1
                               text-xs
-                              text-slate-500
+                              text-[var(--mt-muted)]
                             "
                           >
                             (
@@ -1430,7 +2983,7 @@ export default function ShtCreator({
                             className="
                               ml-1
                               text-xs
-                              text-slate-500
+                              text-[var(--mt-muted)]
                             "
                           >
                             (
@@ -1467,7 +3020,7 @@ export default function ShtCreator({
                             className="
                               ml-1
                               text-xs
-                              text-slate-500
+                              text-[var(--mt-muted)]
                             "
                           >
                             (
@@ -1491,8 +3044,8 @@ export default function ShtCreator({
                             ${
                               player.sus >
                               0
-                                ? "text-red-400"
-                                : "text-slate-500"
+                                ? "text-red-700"
+                                : "text-[var(--mt-muted)]"
                             }
                           `}
                         >
@@ -1514,8 +3067,8 @@ export default function ShtCreator({
                             ${
                               player.inj >
                               0
-                                ? "text-red-400"
-                                : "text-slate-500"
+                                ? "text-red-700"
+                                : "text-[var(--mt-muted)]"
                             }
                           `}
                         >
@@ -1537,11 +3090,11 @@ export default function ShtCreator({
                             ${
                               player.fit >=
                               90
-                                ? "text-emerald-400"
+                                ? "text-emerald-700"
                                 : player.fit >=
                                     75
-                                  ? "text-yellow-300"
-                                  : "text-red-400"
+                                  ? "text-yellow-800"
+                                  : "text-red-700"
                             }
                           `}
                         >
@@ -1563,7 +3116,7 @@ export default function ShtCreator({
                   p-8
                   text-center
                   text-sm
-                  text-slate-500
+                  text-[var(--mt-muted)]
                 "
               >
                 No hay jugadores
@@ -1582,7 +3135,7 @@ export default function ShtCreator({
       <div
         className="
           min-w-0
-          bg-slate-950/30
+          bg-[var(--mt-surface)]
         "
       >
         {/* TABS */}
@@ -1592,7 +3145,7 @@ export default function ShtCreator({
             grid
             grid-cols-3
             border-b
-            border-slate-800
+            border-[var(--mt-line)]
           "
         >
           <TabButton
@@ -1601,9 +3154,9 @@ export default function ShtCreator({
               "starters"
             }
             activeClass="
-              border-blue-500
-              bg-blue-500/10
-              text-blue-300
+              border-[var(--mt-gold)]
+              bg-[var(--mt-surface-soft)]
+              text-[var(--mt-gold-dark)]
             "
             onClick={() =>
               setActiveTab(
@@ -1622,7 +3175,7 @@ export default function ShtCreator({
             activeClass="
               border-emerald-500
               bg-emerald-500/10
-              text-emerald-300
+              text-emerald-700
             "
             onClick={() =>
               setActiveTab(
@@ -1639,9 +3192,9 @@ export default function ShtCreator({
               "changes"
             }
             activeClass="
-              border-violet-500
-              bg-violet-500/10
-              text-violet-300
+              border-[var(--mt-gold)]
+              bg-[var(--mt-surface-soft)]
+              text-[var(--mt-gold-dark)]
             "
             onClick={() =>
               setActiveTab(
@@ -1677,7 +3230,7 @@ export default function ShtCreator({
                   className="
                     text-lg
                     font-bold
-                    text-slate-300
+                    text-[var(--mt-muted)]
                   "
                 >
                   Creador de alineaciones
@@ -1687,7 +3240,7 @@ export default function ShtCreator({
                   className="
                     mt-2
                     text-sm
-                    text-slate-600
+                    text-[var(--mt-muted)]
                   "
                 >
                   Selecciona un equipo
@@ -1715,7 +3268,7 @@ export default function ShtCreator({
                     <h2
                       className="
                         font-bold
-                        text-white
+                        text-[var(--mt-text)]
                       "
                     >
                       Titulares
@@ -1725,7 +3278,7 @@ export default function ShtCreator({
                       className="
                         mt-1
                         text-xs
-                        text-slate-500
+                        text-[var(--mt-muted)]
                       "
                     >
                       Selecciona 11
@@ -1749,12 +3302,12 @@ export default function ShtCreator({
                           ? `
                             border-emerald-500/40
                             bg-emerald-500/10
-                            text-emerald-400
+                            text-emerald-700
                           `
                           : `
-                            border-slate-700
-                            bg-slate-900
-                            text-slate-400
+                            border-[var(--mt-line)]
+                            bg-[var(--mt-surface)]
+                            text-[var(--mt-muted)]
                           `
                       }
                     `}
@@ -1779,7 +3332,7 @@ export default function ShtCreator({
               "subs" && (
               <BenchSelector
                 teamPlayers={
-                  teamPlayers
+                  availableTeamPlayers
                 }
                 startersKeys={
                   startersKeys
@@ -1796,14 +3349,48 @@ export default function ShtCreator({
           {selectedTeam &&
             activeTab ===
               "changes" && (
-              <StrategyBuilder
-                strategies={
-                  strategies
-                }
-                onChange={
-                  setStrategies
-                }
-              />
+              <div className="space-y-4">
+                {importedAdvancedOrders.length > 0 && (
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-emerald-500/30
+                      bg-emerald-500/10
+                      p-4
+                      text-sm
+                      text-emerald-900
+                    "
+                  >
+                    <div className="font-bold">
+                      Órdenes avanzadas conservadas
+                    </div>
+
+                    <p className="mt-1 text-xs leading-relaxed">
+                      Estas órdenes vienen del archivo importado. Se conservan exactamente y se añadirán al .txt generado para el foro.
+                    </p>
+
+                    <ul className="mt-3 space-y-1 font-mono text-xs">
+                      {importedAdvancedOrders.map(
+                        (order) => (
+                          <li key={order}>
+                            {order}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                <ChangeBuilder
+                  changes={
+                    changes
+                  }
+                  onChange={
+                    setChanges
+                  }
+                />
+              </div>
             )}
         </div>
       </div>
@@ -1836,7 +3423,7 @@ function TableHeader({
         font-semibold
         uppercase
         tracking-wide
-        text-slate-500
+        text-[var(--mt-muted)]
 
         ${
           align === "left"
@@ -1888,10 +3475,10 @@ function TabButton({
             ? activeClass
             : `
               border-transparent
-              text-slate-500
+              text-[var(--mt-muted)]
 
-              hover:bg-slate-900
-              hover:text-slate-300
+              hover:bg-[var(--mt-surface-soft)]
+              hover:text-[var(--mt-muted)]
             `
         }
       `}
@@ -1900,3 +3487,10 @@ function TabButton({
     </button>
   );
 }
+
+
+
+
+
+
+

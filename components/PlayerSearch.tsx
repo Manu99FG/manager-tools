@@ -86,12 +86,12 @@ const POSITION_COLORS: Record<
   EsmsPosition,
   string
 > = {
-  GK: "bg-yellow-400 text-black",
-  DF: "bg-blue-500 text-white",
-  DM: "bg-cyan-500 text-slate-950",
-  MF: "bg-green-500 text-slate-950",
-  AM: "bg-violet-500 text-white",
-  FW: "bg-red-500 text-white",
+  GK: "bg-[var(--mt-gold)] text-white",
+  DF: "bg-[var(--mt-gold)] text-white",
+  DM: "bg-[var(--mt-gold)] text-white",
+  MF: "bg-[var(--mt-gold)] text-white",
+  AM: "bg-[var(--mt-gold)] text-white",
+  FW: "bg-[var(--mt-gold)] text-white",
 };
 
 /* ===========================================
@@ -753,7 +753,7 @@ export default function PlayerSearch({
           px-3
           py-3
           transition
-          hover:bg-slate-700
+          hover:bg-[var(--mt-surface-soft)]
 
           ${
             align === "left"
@@ -769,7 +769,7 @@ export default function PlayerSearch({
             className="
               ml-2
               text-xs
-              text-blue-400
+              text-[var(--mt-gold-dark)]
             "
           >
             {sortDirection ===
@@ -814,15 +814,15 @@ export default function PlayerSearch({
             min-w-0
             rounded-lg
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-4
             py-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
             outline-none
-            placeholder:text-slate-500
-            focus:border-blue-500
+            placeholder:text-[var(--mt-muted)]
+            focus:border-[var(--mt-gold)]
           "
         />
 
@@ -837,12 +837,12 @@ export default function PlayerSearch({
             min-w-0
             rounded-lg
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             py-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
             outline-none
           "
         >
@@ -879,12 +879,12 @@ export default function PlayerSearch({
             min-w-0
             rounded-lg
             border
-            border-slate-700
-            bg-slate-800
+            border-[var(--mt-line)]
+            bg-[var(--mt-surface)]
             px-3
             py-3
             text-sm
-            text-white
+            text-[var(--mt-text)]
             outline-none
           "
         >
@@ -921,14 +921,14 @@ export default function PlayerSearch({
             w-full
             whitespace-nowrap
             rounded-lg
-            bg-emerald-500
+            bg-[var(--mt-gold)]
             px-5
             py-3
             text-sm
             font-bold
-            text-white
+            text-[var(--mt-surface)]
             transition
-            hover:bg-emerald-400
+            hover:bg-[var(--mt-gold)]
 
             xl:w-auto
           "
@@ -957,8 +957,8 @@ export default function PlayerSearch({
                   gap-3
                   rounded-lg
                   border
-                  border-slate-800
-                  bg-slate-900/60
+                  border-[var(--mt-line)]
+                  bg-[var(--mt-surface)]
                   p-3
 
                   sm:grid-cols-[170px_1fr_auto]
@@ -985,12 +985,12 @@ export default function PlayerSearch({
                     min-w-0
                     rounded-md
                     border
-                    border-slate-700
-                    bg-slate-800
+                    border-[var(--mt-line)]
+                    bg-[var(--mt-surface)]
                     px-3
                     py-2
                     text-sm
-                    text-white
+                    text-[var(--mt-text)]
                     outline-none
                   "
                 >
@@ -1034,12 +1034,12 @@ export default function PlayerSearch({
                       min-w-0
                       rounded-md
                       border
-                      border-slate-700
-                      bg-slate-800
+                      border-[var(--mt-line)]
+                      bg-[var(--mt-surface)]
                       px-3
                       py-2
                       text-sm
-                      text-white
+                      text-[var(--mt-text)]
                       outline-none
                     "
                   >
@@ -1067,7 +1067,7 @@ export default function PlayerSearch({
                       gap-2
                     "
                   >
-                    <span className="text-xs text-slate-400 sm:text-sm">
+                    <span className="text-xs text-[var(--mt-muted)] sm:text-sm">
                       Entre
                     </span>
 
@@ -1091,20 +1091,20 @@ export default function PlayerSearch({
                         min-w-0
                         rounded-md
                         border
-                        border-slate-700
-                        bg-slate-800
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         px-2
                         py-2
                         text-sm
-                        text-white
+                        text-[var(--mt-text)]
                         outline-none
-                        placeholder:text-slate-500
+                        placeholder:text-[var(--mt-muted)]
 
                         sm:px-3
                       "
                     />
 
-                    <span className="text-xs text-slate-400 sm:text-sm">
+                    <span className="text-xs text-[var(--mt-muted)] sm:text-sm">
                       y
                     </span>
 
@@ -1128,14 +1128,14 @@ export default function PlayerSearch({
                         min-w-0
                         rounded-md
                         border
-                        border-slate-700
-                        bg-slate-800
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         px-2
                         py-2
                         text-sm
-                        text-white
+                        text-[var(--mt-text)]
                         outline-none
-                        placeholder:text-slate-500
+                        placeholder:text-[var(--mt-muted)]
 
                         sm:px-3
                       "
@@ -1163,7 +1163,7 @@ export default function PlayerSearch({
                     bg-red-500
                     text-xl
                     font-bold
-                    text-white
+                    text-[var(--mt-surface)]
                     transition
                     hover:bg-red-400
 
@@ -1187,7 +1187,7 @@ export default function PlayerSearch({
           flex-col
           gap-2
           text-xs
-          text-slate-500
+          text-[var(--mt-muted)]
 
           sm:flex-row
           sm:items-center
@@ -1213,8 +1213,8 @@ export default function PlayerSearch({
             }
             className="
               self-start
-              text-blue-400
-              hover:text-blue-300
+              text-[var(--mt-gold-dark)]
+              hover:text-[var(--mt-gold-dark)]
             "
           >
             Limpiar filtros
@@ -1231,7 +1231,7 @@ export default function PlayerSearch({
           overflow-x-auto
           rounded-xl
           border
-          border-slate-800
+          border-[var(--mt-line)]
         "
       >
         <table
@@ -1244,8 +1244,8 @@ export default function PlayerSearch({
         >
           <thead
             className="
-              bg-slate-800
-              text-slate-200
+              bg-[var(--mt-surface)]
+              text-[var(--mt-text)]
             "
           >
             <tr>
@@ -1339,8 +1339,8 @@ export default function PlayerSearch({
                     key={`${player.teamCode}-${player.name}-${index}`}
                     className="
                       border-t
-                      border-slate-800
-                      hover:bg-slate-900
+                      border-[var(--mt-line)]
+                      hover:bg-[var(--mt-surface-soft)]
                     "
                   >
                     <td
@@ -1349,7 +1349,7 @@ export default function PlayerSearch({
                         px-3
                         py-3
                         font-medium
-                        text-white
+                        text-[var(--mt-text)]
                       "
                     >
                       <PlayerNameLink
@@ -1361,9 +1361,9 @@ export default function PlayerSearch({
                         }
                         className="
                           font-semibold
-                          text-white
+                          text-[var(--mt-text)]
                           transition
-                          hover:text-blue-400
+                          hover:text-[var(--mt-gold-dark)]
                         "
                       />
                     </td>
@@ -1373,7 +1373,7 @@ export default function PlayerSearch({
                         whitespace-nowrap
                         px-3
                         py-3
-                        text-slate-300
+                        text-[var(--mt-muted)]
                       "
                     >
                       {
@@ -1420,7 +1420,7 @@ export default function PlayerSearch({
                             text-xs
                             font-bold
                             uppercase
-                            text-slate-500
+                            text-[var(--mt-muted)]
                           "
                         >
                           {

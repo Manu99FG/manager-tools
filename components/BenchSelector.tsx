@@ -43,24 +43,24 @@ const POSITION_COLORS: Record<
   Exclude<BenchPosition, "">,
   string
 > = {
-  GK: "bg-yellow-400 text-black",
-  DF: "bg-blue-500 text-white",
-  DM: "bg-cyan-500 text-slate-950",
-  MF: "bg-green-500 text-slate-950",
-  AM: "bg-violet-500 text-white",
-  FW: "bg-red-500 text-white",
+  GK: "bg-[var(--mt-gold)] text-white",
+  DF: "bg-[var(--mt-gold)] text-white",
+  DM: "bg-[var(--mt-gold)] text-white",
+  MF: "bg-[var(--mt-gold)] text-white",
+  AM: "bg-[var(--mt-gold)] text-white",
+  FW: "bg-[var(--mt-gold)] text-white",
 };
 
 const NATURAL_POSITION_COLORS: Record<
   EsmsPosition,
   string
 > = {
-  GK: "text-yellow-400",
-  DF: "text-blue-400",
-  DM: "text-cyan-400",
-  MF: "text-green-400",
-  AM: "text-violet-400",
-  FW: "text-red-400",
+  GK: "bg-[var(--mt-gold)] text-white",
+  DF: "bg-[var(--mt-gold)] text-white",
+  DM: "bg-[var(--mt-gold)] text-white",
+  MF: "bg-[var(--mt-gold)] text-white",
+  AM: "bg-[var(--mt-gold)] text-white",
+  FW: "bg-[var(--mt-gold)] text-white",
 };
 
 export default function BenchSelector({
@@ -208,7 +208,7 @@ export default function BenchSelector({
           ${
             highlight
               ? "border-emerald-500/50 bg-emerald-500/10"
-              : "border-slate-700 bg-slate-800"
+              : "border-[var(--mt-line)] bg-[var(--mt-surface)]"
           }
         `}
       >
@@ -217,7 +217,7 @@ export default function BenchSelector({
             text-[9px]
             font-bold
             uppercase
-            text-slate-500
+            text-[var(--mt-muted)]
           "
         >
           {label}
@@ -231,8 +231,8 @@ export default function BenchSelector({
 
             ${
               highlight
-                ? "text-emerald-400"
-                : "text-white"
+                ? "text-emerald-700"
+                : "text-[var(--mt-text)]"
             }
           `}
         >
@@ -284,7 +284,7 @@ export default function BenchSelector({
               truncate
               text-sm
               font-bold
-              text-white
+              text-[var(--mt-text)]
             "
           >
             {player.name}
@@ -376,7 +376,7 @@ export default function BenchSelector({
       <div
         className="
           border-b-2
-          border-blue-500
+          border-[var(--mt-gold)]
           pb-3
         "
       >
@@ -391,7 +391,7 @@ export default function BenchSelector({
             className="
               text-lg
               font-bold
-              text-blue-400
+              text-[var(--mt-gold-dark)]
 
               sm:text-xl
             "
@@ -405,12 +405,12 @@ export default function BenchSelector({
           <span
             className="
               rounded-full
-              bg-slate-800
+              bg-[var(--mt-surface)]
               px-3
               py-1
               text-xs
               font-bold
-              text-slate-400
+              text-[var(--mt-muted)]
             "
           >
             {
@@ -464,7 +464,7 @@ export default function BenchSelector({
                     text-center
                     text-sm
                     font-bold
-                    text-white
+                    text-[var(--mt-text)]
                   "
                 >
                   {index + 1}
@@ -489,7 +489,7 @@ export default function BenchSelector({
                     h-10
                     rounded-md
                     border
-                    border-slate-700
+                    border-[var(--mt-line)]
                     px-2
                     text-sm
                     font-bold
@@ -500,55 +500,55 @@ export default function BenchSelector({
                         ? POSITION_COLORS[
                             slot.position
                           ]
-                        : "bg-slate-800 text-white"
+                        : "bg-[var(--mt-surface)] text-[var(--mt-text)]"
                     }
                   `}
                 >
                   <option
                     value=""
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     Pos
                   </option>
 
                   <option
                     value="GK"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     GK
                   </option>
 
                   <option
                     value="DF"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     DF
                   </option>
 
                   <option
                     value="DM"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     DM
                   </option>
 
                   <option
                     value="MF"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     MF
                   </option>
 
                   <option
                     value="AM"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     AM
                   </option>
 
                   <option
                     value="FW"
-                    className="bg-slate-900 text-white"
+                    className="bg-[var(--mt-surface)] text-[var(--mt-text)]"
                   >
                     FW
                   </option>
@@ -582,22 +582,22 @@ export default function BenchSelector({
                         justify-between
                         rounded-md
                         border
-                        border-slate-700
-                        bg-slate-800
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         px-3
                         py-2
                         text-left
                         text-sm
-                        text-slate-500
+                        text-[var(--mt-muted)]
                         transition
-                        hover:border-slate-600
+                        hover:border-[var(--mt-line)]
                       "
                     >
                       <span>
                         Seleccionar jugador...
                       </span>
 
-                      <span className="text-blue-400">
+                      <span className="text-[var(--mt-gold-dark)]">
                         ▼
                       </span>
                     </button>
@@ -610,8 +610,8 @@ export default function BenchSelector({
                       className="
                         rounded-lg
                         border
-                        border-slate-700
-                        bg-slate-900
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         p-3
                       "
                     >
@@ -664,10 +664,10 @@ export default function BenchSelector({
                             bg-red-500/10
                             text-lg
                             font-bold
-                            text-red-400
+                            text-red-700
                             transition
                             hover:bg-red-500
-                            hover:text-white
+                            hover:text-[var(--mt-text)]
                           "
                         >
                           ×
@@ -691,8 +691,8 @@ export default function BenchSelector({
                         overflow-y-auto
                         rounded-lg
                         border
-                        border-slate-700
-                        bg-slate-950
+                        border-[var(--mt-line)]
+                        bg-[var(--mt-surface)]
                         p-2
                         shadow-2xl
                       "
@@ -705,7 +705,7 @@ export default function BenchSelector({
                             py-6
                             text-center
                             text-sm
-                            text-slate-600
+                            text-[var(--mt-muted)]
                           "
                         >
                           No hay jugadores disponibles.
@@ -734,14 +734,14 @@ export default function BenchSelector({
                                   w-full
                                   rounded-lg
                                   border
-                                  border-slate-800
-                                  bg-slate-900
+                                  border-[var(--mt-line)]
+                                  bg-[var(--mt-surface)]
                                   p-3
                                   text-left
                                   transition
 
-                                  hover:border-blue-500
-                                  hover:bg-slate-800
+                                  hover:border-[var(--mt-gold)]
+                                  hover:bg-[var(--mt-surface-soft)]
                                 "
                               >
                                 <PlayerCard
