@@ -184,16 +184,20 @@ async function getAllStats(): Promise<StatRow[]> {
 export async function getHomeDashboardData(): Promise<HomeDashboardData> {
   const supabase = getSupabaseAdmin();
 
-  const [competitions, market, stats, playersResult] = await Promise.all([
+  const [competitions, market, stats, playersResult, clubsResult] = await Promise.all([
     getCompetitions(),
     getMarketHistoryData(),
     getAllStats(),
     supabase
       .from("players")
       .select("id,esms_name,full_name,photo_url,current_team_code"),
+    supabase
+      .from("club_metadata")
+      .select("club_code", { count: "exact", head: true }),
   ]);
 
   if (playersResult.error) throw playersResult.error;
+  if (clubsResult.error) throw clubsResult.error;
 
   const players = (playersResult.data ?? []) as PlayerRow[];
   const playerById = new Map(players.map((player) => [player.id, player]));
@@ -329,7 +333,7 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
 
   return {
     totals: {
-      clubs: 28,
+      clubs: clubsResult.count ?? 0,
       players: currentPlayers.length,
       competitions: competitions.length,
       movements: market.totals.movements,
