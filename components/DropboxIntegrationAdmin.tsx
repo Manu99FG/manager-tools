@@ -125,6 +125,23 @@ export default function DropboxIntegrationAdmin({
     }
   }
 
+  async function rebuildPlayersFromBase() {
+    if (!window.confirm("¿Reconstruir la base de jugadores desde las Plantillas BASE seleccionadas? Se conservarán los UUID de jugadores que ya existan.")) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/integrations/dropbox/rebuild-base", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "No se pudieron reconstruir los jugadores");
+      const result = data.result;
+      setMessage(`Jugadores reconstruidos desde BASE: ${result.created} creados, ${result.updated} actualizados · ${result.parsedPlayers} jugadores · ${result.teams} clubes.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudieron reconstruir los jugadores");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function syncNow() {
     setBusy(true);
     setMessage(null);
@@ -235,6 +252,18 @@ export default function DropboxIntegrationAdmin({
                   </div>
                 </div>
               ) : null}
+
+              <div className="dropbox-base-rebuild-action">
+                <button
+                  type="button"
+                  className="app-button-primary"
+                  onClick={rebuildPlayersFromBase}
+                  disabled={busy || !baseFolderPath}
+                >
+                  Reconstruir jugadores desde BASE
+                </button>
+                <span>Repuebla la tabla de jugadores a partir de las plantillas BASE sin restaurar partidos ni históricos antiguos.</span>
+              </div>
             </div>
 
             <div className="app-panel dropbox-config-card dropbox-live-card">

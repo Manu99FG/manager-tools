@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { importCurrentPlayerHistory } from "@/lib/import-player-history";
+
 import {
   getDropboxIntegrationSettings,
   markDropboxWebhookEvent,
@@ -40,7 +42,10 @@ export async function POST(request: NextRequest) {
     const settings = await getDropboxIntegrationSettings();
     if (settings.accountId && accounts.includes(settings.accountId)) {
       await markDropboxWebhookEvent();
-      await syncDropboxLiveFolderStatus();
+      const sync = await syncDropboxLiveFolderStatus();
+      if (sync.ok) {
+        await importCurrentPlayerHistory();
+      }
     }
   } catch (error) {
     console.error("Dropbox webhook:", error);

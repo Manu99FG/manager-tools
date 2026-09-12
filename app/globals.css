@@ -8524,3 +8524,19 @@ body{
   .dropbox-sync-metrics { grid-template-columns: 1fr; }
   .dropbox-sync-metrics > div { border-right: 0; border-bottom: 1px solid var(--mt-line); padding: 0 0 10px; }
 }
+
+/* Dropbox · reconstrucción de jugadores desde las plantillas BASE */
+.dropbox-base-rebuild-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #E9E8E5;
+}
+
+.dropbox-base-rebuild-action span {
+  color: #686868;
+  font-size: 12px;
+  line-height: 1.45;
+}
