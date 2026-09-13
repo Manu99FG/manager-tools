@@ -11,6 +11,7 @@ const TABS = [
   ["Competiciones", "competiciones", "trophy"],
   ["Historial", "historial", "clock"],
   ["Récords", "records", "star"],
+  ["Rendimiento", "rendimiento", "stats"],
 ] as const;
 
 export default function ClubProfileNav({ teamCode }: { teamCode: string }) {
