@@ -99,6 +99,7 @@ export default function CompetitionMatchAdmin({ data }: Props) {
   const [openImportId, setOpenImportId] = useState<string | null>(null);
   const [busyMatchId, setBusyMatchId] = useState<string | null>(null);
   const [simulateBusy, setSimulateBusy] = useState(false);
+  const [rebalanceBusy, setRebalanceBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,6 +121,39 @@ export default function CompetitionMatchAdmin({ data }: Props) {
   const recentMatches = [...playedMatches].reverse().slice(0, 5);
   const nextMatches = pendingMatches.slice(0, 5);
   const displayStandings = groupStandings.length ? groupStandings : [{ groupName: "Clasificación", standings }];
+
+  async function rebalanceLeagueHomeAway() {
+    setMessage(null);
+    setError(null);
+    setRebalanceBusy(true);
+
+    try {
+      const response = await fetch("/api/competitions/rebalance-home-away", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competitionId: competition.id }),
+      });
+      const result = (await response.json()) as ApiResult & {
+        matchesUpdated?: number;
+        rule?: string;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "No se pudo reequilibrar el calendario.");
+      }
+      setMessage(
+        `Calendario reequilibrado: ${result.matchesUpdated ?? 0} partidos actualizados. ${result.rule ?? ""}`
+      );
+      router.refresh();
+    } catch (rebalanceError) {
+      setError(
+        rebalanceError instanceof Error
+          ? rebalanceError.message
+          : "Error desconocido."
+      );
+    } finally {
+      setRebalanceBusy(false);
+    }
+  }
 
   function updateDraft(matchId: string, patch: Partial<MatchDraft>) {
     setDrafts((current) => ({
@@ -393,6 +427,13 @@ export default function CompetitionMatchAdmin({ data }: Props) {
             <h3>Acciones rápidas</h3>
             {competition.name.toLocaleLowerCase("es").includes("pretemporada") ? <QuickAction icon="ball" text={simulateBusy ? "Simulando..." : "Simular pretemporada"} onClick={simulateBusy ? () => undefined : simulatePreseason} /> : null}
             <QuickAction icon="calendar" text="Gestionar partidos" onClick={() => setTab("matches")} />
+            {competition.type === "LEAGUE" && matches.length ? (
+              <QuickAction
+                icon="calendar"
+                text={rebalanceBusy ? "Reequilibrando..." : "Reequilibrar local / visitante"}
+                onClick={rebalanceBusy ? () => undefined : rebalanceLeagueHomeAway}
+              />
+            ) : null}
             <QuickAction icon="teams" text="Gestionar equipos" onClick={() => setTab("teams")} />
             {(competition.type === "GROUPS" || competition.type === "GROUPS_KNOCKOUT") ? <QuickAction icon="groups" text={matches.length ? "Gestionar grupos" : teams.length && teams.every((team) => team.group_name?.trim()) ? "Generar calendario de grupos" : groupStandings.length ? "Gestionar grupos" : "Crear grupos"} onClick={() => setTab("groups")} /> : null}
             {(competition.type === "GROUPS" || competition.type === "GROUPS_KNOCKOUT") ? <QuickAction icon="chart" text={competition.status === "FINISHED" ? "Ver reparto final" : "Reparto / finalizar"} onClick={() => setTab("rules")} /> : null}

@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 import { isAdminSession } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CLUB_CLASSES, validateClassDistribution } from "@/lib/club-classes";
+import {
+  assertHomeCountRange,
+  createBalancedSingleRoundRobin,
+} from "@/lib/calendar-home-balance";
 
 const BYE = "__BYE__";
 
@@ -233,10 +237,32 @@ export async function POST(request: Request) {
       competition.home_and_away = true;
     }
 
-    const firstLegByGroup = groups.map(([groupName, codes]) => ({
-      groupName,
-      rounds: createRoundRobin(codes),
-    }));
+    const firstLegByGroup = groups.map(([groupName, codes]) => {
+      if (isIntercontinental) {
+        if (codes.length !== 8) {
+          throw new Error(
+            `${groupName} debe tener exactamente 8 equipos en la Copa Intercontinental.`
+          );
+        }
+
+        // Copa Intercontinental: una vuelta, 7 partidos por club.
+        // Cada equipo debe jugar exactamente 3 o 4 veces como local.
+        const rounds = createBalancedSingleRoundRobin(shuffled(codes));
+        assertHomeCountRange(rounds, 3, 4);
+
+        // El orden de jornadas y de partidos puede seguir siendo aleatorio;
+        // el balance total de localías se conserva.
+        return {
+          groupName,
+          rounds: shuffled(rounds).map((round) => shuffled(round)),
+        };
+      }
+
+      return {
+        groupName,
+        rounds: createRoundRobin(codes),
+      };
+    });
 
     const firstLegRoundCount = Math.max(
       ...firstLegByGroup.map((group) => group.rounds.length)

@@ -1,37 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { createBalancedLeagueCalendar } from "@/lib/calendar-home-balance";
 
 type SupabaseAdmin = ReturnType<typeof getSupabaseAdmin>;
-
-function createRoundRobin(inputTeams: string[]) {
-  const teams = [...inputTeams];
-  if (teams.length % 2 === 1) teams.push("__BYE__");
-
-  const total = teams.length;
-  const rounds: Array<Array<[string, string]>> = [];
-  let rotation = [...teams];
-
-  for (let roundIndex = 0; roundIndex < total - 1; roundIndex += 1) {
-    const matches: Array<[string, string]> = [];
-
-    for (let index = 0; index < total / 2; index += 1) {
-      let home = rotation[index];
-      let away = rotation[total - 1 - index];
-
-      if (roundIndex % 2 === 1 && index === 0) {
-        [home, away] = [away, home];
-      }
-
-      if (home !== "__BYE__" && away !== "__BYE__") {
-        matches.push([home, away]);
-      }
-    }
-
-    rounds.push(matches);
-    rotation = [rotation[0], rotation[total - 1], ...rotation.slice(1, total - 1)];
-  }
-
-  return rounds;
-}
 
 export type GenerateLeagueCalendarResult = {
   generated: boolean;
@@ -83,15 +53,13 @@ export async function generateLeagueCalendar(
     return { generated: false, reason: "ALREADY_GENERATED" };
   }
 
-  const firstLeg = createRoundRobin(teams);
-  const allRounds = competition.home_and_away
-    ? [
-        ...firstLeg,
-        ...firstLeg.map((matches) =>
-          matches.map(([home, away]) => [away, home] as [string, string])
-        ),
-      ]
-    : firstLeg;
+  // Regla global de liga: máximo 2 jornadas consecutivas como local.
+  // En ida y vuelta, la segunda vuelta se genera en orden inverso para
+  // evitar una tercera localía consecutiva en el cambio de vuelta.
+  const allRounds = createBalancedLeagueCalendar(
+    teams,
+    Boolean(competition.home_and_away)
+  );
 
   const isSecondDivision = String(competition.name ?? "")
     .toLocaleLowerCase("es")

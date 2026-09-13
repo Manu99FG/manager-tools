@@ -84,6 +84,7 @@ export default function CompetitionGroupsAdmin({
   );
   const [busy, setBusy] = useState(false);
   const [calendarBusy, setCalendarBusy] = useState(false);
+  const [rebalanceBusy, setRebalanceBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -261,6 +262,42 @@ export default function CompetitionGroupsAdmin({
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function rebalanceHomeAway() {
+    setMessage(null);
+    setError(null);
+    setRebalanceBusy(true);
+
+    try {
+      const response = await fetch("/api/competitions/rebalance-home-away", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competitionId }),
+      });
+
+      const result = (await response.json()) as ApiResult & {
+        matchesUpdated?: number;
+        rule?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "No se pudo reequilibrar el calendario.");
+      }
+
+      setMessage(
+        `Calendario reequilibrado: ${result.matchesUpdated ?? 0} partidos actualizados. ${result.rule ?? ""}`
+      );
+      router.refresh();
+    } catch (rebalanceError) {
+      setError(
+        rebalanceError instanceof Error
+          ? rebalanceError.message
+          : "Error desconocido."
+      );
+    } finally {
+      setRebalanceBusy(false);
     }
   }
 
@@ -524,6 +561,19 @@ export default function CompetitionGroupsAdmin({
               ? "Generando..."
               : "Generar calendario"}
         </button>
+
+        {isIntercontinental && hasMatches ? (
+          <button
+            type="button"
+            className="manage-groups-calendar-button"
+            disabled={rebalanceBusy}
+            onClick={rebalanceHomeAway}
+          >
+            {rebalanceBusy
+              ? "Reequilibrando..."
+              : "Reequilibrar local / visitante"}
+          </button>
+        ) : null}
       </div>
 
       {hasMatches ? (
