@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rankStandings } from "@/lib/standings-ranking";
 
 export type ClubStatsSeason = { id: string; name: string; isActive: boolean };
 export type ClubStatsCompetition = {
@@ -21,6 +22,7 @@ export type ClubStatsStandingRow = {
   goalsFor: number;
   goalsAgainst: number;
   goalDifference: number;
+  noPresented: number;
   points: number;
 };
 export type ClubStatsCompetitionTable = {
@@ -130,7 +132,7 @@ export async function getClubStatistics(teamCodeInput: string, requestedSeasonId
 
   const [matchesResult, competitionTeamsResult, statsResult] = await Promise.all([
     supabase.from("matches")
-      .select("id,competition_id,home_team_code,away_team_code,home_score,away_score,status,scheduled_at,played_at,created_at")
+      .select("id,competition_id,home_team_code,away_team_code,home_score,away_score,status,home_no_show,away_no_show,scheduled_at,played_at,created_at")
       .in("competition_id", scopedCompetitionIds),
     supabase.from("competition_teams")
       .select("competition_id,team_code,group_name")
@@ -242,7 +244,7 @@ export async function getClubStatistics(teamCodeInput: string, requestedSeasonId
       const codes = new Set(groupMembers.map((row) => String(row.team_code)));
       if (!codes.size) continue;
       const table = new Map<string, Omit<ClubStatsStandingRow, "position" | "goalDifference">>();
-      for (const row of groupMembers) table.set(String(row.team_code), { teamCode: String(row.team_code), groupName, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 });
+      for (const row of groupMembers) table.set(String(row.team_code), { teamCode: String(row.team_code), groupName, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, noPresented: 0, points: 0 });
       for (const match of allCompetitionMatchRows) {
         if (String(match.competition_id) !== competition.id || String(match.status) !== "PLAYED" || match.home_score === null || match.away_score === null) continue;
         const homeCode = String(match.home_team_code), awayCode = String(match.away_team_code);
@@ -250,13 +252,22 @@ export async function getClubStatistics(teamCodeInput: string, requestedSeasonId
         const home = table.get(homeCode), away = table.get(awayCode);
         if (!home || !away) continue;
         const hs = n(match.home_score), as = n(match.away_score);
-        home.played++; away.played++; home.goalsFor += hs; home.goalsAgainst += as; away.goalsFor += as; away.goalsAgainst += hs;
+        home.played++; away.played++; if (match.home_no_show) home.noPresented++; if (match.away_no_show) away.noPresented++; home.goalsFor += hs; home.goalsAgainst += as; away.goalsFor += as; away.goalsAgainst += hs;
         if (hs > as) { home.wins++; away.losses++; home.points += competition.pointsWin; away.points += competition.pointsLoss; }
         else if (hs < as) { away.wins++; home.losses++; away.points += competition.pointsWin; home.points += competition.pointsLoss; }
         else { home.draws++; away.draws++; home.points += competition.pointsDraw; away.points += competition.pointsDraw; }
       }
-      const rows = [...table.values()].map((row) => ({ ...row, position: 0, goalDifference: row.goalsFor - row.goalsAgainst }))
-        .sort((a,b) => b.points-a.points || b.goalDifference-a.goalDifference || b.goalsFor-a.goalsFor || a.teamCode.localeCompare(b.teamCode))
+      const unsortedRows = [...table.values()].map((row) => ({ ...row, position: 0, goalDifference: row.goalsFor - row.goalsAgainst }));
+      const rankingMatches = allCompetitionMatchRows
+        .filter((match) => String(match.competition_id) === competition.id && codes.has(String(match.home_team_code)) && codes.has(String(match.away_team_code)))
+        .map((match) => ({
+          homeTeamCode: String(match.home_team_code),
+          awayTeamCode: String(match.away_team_code),
+          homeScore: match.home_score === null ? null : n(match.home_score),
+          awayScore: match.away_score === null ? null : n(match.away_score),
+          status: String(match.status),
+        }));
+      const rows = rankStandings(unsortedRows, rankingMatches, { win: competition.pointsWin, draw: competition.pointsDraw, loss: competition.pointsLoss })
         .map((row,index) => ({ ...row, position: index + 1 }));
       competitionTables.push({ competitionId: competition.id, groupName, rows });
     }

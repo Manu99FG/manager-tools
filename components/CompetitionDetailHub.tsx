@@ -9,6 +9,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { getClubLogo } from "@/lib/club-logo";
 import { getClubName } from "@/lib/club-names";
+import { rankStandings } from "@/lib/standings-ranking";
 
 type Competition = {
   id: string;
@@ -3417,20 +3418,23 @@ function buildSplitStandings(
     }
   }
 
-  return Array.from(table.values())
-    .map((row) => ({
-      ...row,
-      position: 0,
-      goalDifference: row.goalsFor - row.goalsAgainst,
-    }))
-    .sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.goalDifference - a.goalDifference ||
-        b.goalsFor - a.goalsFor ||
-        getClubName(a.teamCode).localeCompare(getClubName(b.teamCode), "es")
-    )
-    .map((row, index) => ({ ...row, position: index + 1 }));
+  const rows = Array.from(table.values()).map((row) => ({
+    ...row,
+    position: 0,
+    goalDifference: row.goalsFor - row.goalsAgainst,
+  }));
+
+  return rankStandings(
+    rows,
+    matches.map((match) => ({
+      homeTeamCode: match.homeTeamCode,
+      awayTeamCode: match.awayTeamCode,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      status: match.status,
+    })),
+    { win: competition.pointsWin, draw: competition.pointsDraw, loss: competition.pointsLoss }
+  ).map((row, index) => ({ ...row, position: index + 1 }));
 }
 
 function MiniStandingTable({

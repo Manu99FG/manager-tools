@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rankStandings } from "@/lib/standings-ranking";
 
 type Season = {
   id: string;
@@ -51,6 +52,8 @@ type Match = {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  home_no_show: boolean;
+  away_no_show: boolean;
   created_at: string;
 };
 
@@ -109,7 +112,7 @@ export async function getRecordsData(): Promise<RecordsData> {
     supabase.from("competitions").select("*,season:seasons(id,name)").order("created_at"),
     supabase.from("competition_teams").select("competition_id,team_code"),
     supabase.from("competition_rounds").select("id,competition_id,number,name,stage").order("number"),
-    supabase.from("matches").select("id,competition_id,round_id,home_team_code,away_team_code,home_score,away_score,status,created_at").order("created_at"),
+    supabase.from("matches").select("id,competition_id,round_id,home_team_code,away_team_code,home_score,away_score,status,home_no_show,away_no_show,created_at").order("created_at"),
   ]);
 
   if (seriesRes.error) throw seriesRes.error;
@@ -186,6 +189,7 @@ function buildEdition(
     lost: number;
     gf: number;
     ga: number;
+    noPresented: number;
     points: number;
   }>();
 
@@ -198,6 +202,7 @@ function buildEdition(
       lost: 0,
       gf: 0,
       ga: 0,
+      noPresented: 0,
       points: 0,
     });
   }
@@ -212,6 +217,8 @@ function buildEdition(
 
     home.played++;
     away.played++;
+    if (match.home_no_show) home.noPresented++;
+    if (match.away_no_show) away.noPresented++;
     home.gf += hs;
     home.ga += as;
     away.gf += as;
@@ -235,12 +242,20 @@ function buildEdition(
     }
   }
 
-  const standings = [...table.values()].sort(
-    (a, b) =>
-      b.points - a.points ||
-      (b.gf - b.ga) - (a.gf - a.ga) ||
-      b.gf - a.gf ||
-      a.teamCode.localeCompare(b.teamCode)
+  const standings = rankStandings(
+    [...table.values()].map((row) => ({
+      ...row,
+      goalsFor: row.gf,
+      goalDifference: row.gf - row.ga,
+    })),
+    matches.map((match) => ({
+      homeTeamCode: match.home_team_code,
+      awayTeamCode: match.away_team_code,
+      homeScore: match.home_score,
+      awayScore: match.away_score,
+      status: match.status,
+    })),
+    { win: competition.points_win, draw: competition.points_draw, loss: competition.points_loss }
   );
 
   const matchIds = new Set(matches.map((m) => m.id));

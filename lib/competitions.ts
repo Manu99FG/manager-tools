@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rankStandings } from "@/lib/standings-ranking";
 
 import type {
   Competition,
@@ -212,11 +213,18 @@ export async function getCompetitionPageData(
   const teams = (teamsResult.data ?? []) as CompetitionTeam[];
   const rounds = (roundsResult.data ?? []) as CompetitionRound[];
   const matches = (matchesResult.data ?? []) as CompetitionMatch[];
+  const knockoutStages = new Set([
+    "ROUND_OF_16",
+    "QUARTERFINAL",
+    "SEMIFINAL",
+    "FINAL",
+    "PLAYOFF",
+  ]);
   const regularRoundIds = new Set(
     rounds
       .filter((round) => {
         const stage = String(round.stage ?? "REGULAR").toUpperCase();
-        return !["SEMIFINAL", "FINAL", "PLAYOFF"].includes(stage);
+        return !knockoutStages.has(stage);
       })
       .map((round) => round.id)
   );
@@ -240,7 +248,7 @@ export async function getCompetitionPageData(
       teams,
       regularMatches
     ),
-    groupStandings: buildGroupStandings(competition, teams, matches),
+    groupStandings: buildGroupStandings(competition, teams, matches.filter((match) => !match.round_id || regularRoundIds.has(match.round_id))),
   };
 }
 
@@ -352,22 +360,25 @@ export function buildStandings(
     }
   }
 
-  return Array.from(table.values())
-    .map((row) => ({
-      ...row,
-      position: 0,
-      goalDifference:
-        row.goalsFor - row.goalsAgainst,
-    }))
-    .sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.goalDifference - a.goalDifference ||
-        b.goalsFor - a.goalsFor ||
-        a.teamCode.localeCompare(b.teamCode)
-    )
-    .map((row, index) => ({
-      ...row,
-      position: index + 1,
-    }));
+  const rows = Array.from(table.values()).map((row) => ({
+    ...row,
+    position: 0,
+    goalDifference: row.goalsFor - row.goalsAgainst,
+  }));
+
+  return rankStandings(
+    rows,
+    matches.map((match) => ({
+      homeTeamCode: match.home_team_code,
+      awayTeamCode: match.away_team_code,
+      homeScore: match.home_score,
+      awayScore: match.away_score,
+      status: match.status,
+    })),
+    {
+      win: competition.points_win,
+      draw: competition.points_draw,
+      loss: competition.points_loss,
+    }
+  ).map((row, index) => ({ ...row, position: index + 1 }));
 }

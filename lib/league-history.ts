@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rankStandings } from "@/lib/standings-ranking";
 import {
   getPositionPerformanceScore,
   normalizeScoresByPositionAndSeason,
@@ -38,6 +39,8 @@ type MatchRow = {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  home_no_show: boolean;
+  away_no_show: boolean;
   created_at: string;
 };
 
@@ -197,7 +200,7 @@ export async function getLeagueHistoryData(): Promise<LeagueHistoryData> {
     supabase
       .from("matches")
       .select(
-        "id,competition_id,round_id,home_team_code,away_team_code,home_score,away_score,status,created_at"
+        "id,competition_id,round_id,home_team_code,away_team_code,home_score,away_score,status,home_no_show,away_no_show,created_at"
       )
       .order("created_at"),
     supabase.from("award_history").select("player_id,rank,points"),
@@ -422,11 +425,12 @@ export async function getLeagueHistoryData(): Promise<LeagueHistoryData> {
           points: number;
           gf: number;
           ga: number;
+          noPresented: number;
         }
       >(
         teamCodes.map((teamCode) => [
           teamCode,
-          { teamCode, points: 0, gf: 0, ga: 0 },
+          { teamCode, points: 0, gf: 0, ga: 0, noPresented: 0 },
         ])
       );
 
@@ -438,6 +442,8 @@ export async function getLeagueHistoryData(): Promise<LeagueHistoryData> {
         const hs = match.home_score ?? 0;
         const as = match.away_score ?? 0;
 
+        if (match.home_no_show) home.noPresented += 1;
+        if (match.away_no_show) away.noPresented += 1;
         home.gf += hs;
         home.ga += as;
         away.gf += as;
@@ -455,12 +461,21 @@ export async function getLeagueHistoryData(): Promise<LeagueHistoryData> {
         }
       }
 
-      const champion = Array.from(table.values()).sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.gf - b.ga - (a.gf - a.ga) ||
-          b.gf - a.gf ||
-          a.teamCode.localeCompare(b.teamCode)
+      const rankingRows = Array.from(table.values()).map((row) => ({
+        ...row,
+        goalsFor: row.gf,
+        goalDifference: row.gf - row.ga,
+      }));
+      const champion = rankStandings(
+        rankingRows,
+        competitionMatches.map((match) => ({
+          homeTeamCode: match.home_team_code,
+          awayTeamCode: match.away_team_code,
+          homeScore: match.home_score,
+          awayScore: match.away_score,
+          status: match.status,
+        })),
+        { win: competition.points_win, draw: competition.points_draw, loss: competition.points_loss }
       )[0]?.teamCode;
 
       if (champion) championByCompetition.set(competition.id, champion);

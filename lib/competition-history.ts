@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rankStandings } from "@/lib/standings-ranking";
 
 export type CompetitionSeries = {
   id: string;
@@ -38,6 +39,8 @@ type MatchRow = {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  home_no_show: boolean;
+  away_no_show: boolean;
 };
 
 type PlayerStatRow = {
@@ -64,6 +67,7 @@ export type HistoricalStandingRow = {
   goalsFor: number;
   goalsAgainst: number;
   goalDifference: number;
+  noPresented: number;
   points: number;
 };
 
@@ -189,7 +193,7 @@ export async function getCompetitionHistoryPreview(
     supabase
       .from("matches")
       .select(
-        "id,competition_id,home_team_code,away_team_code,home_score,away_score,status"
+        "id,competition_id,home_team_code,away_team_code,home_score,away_score,status,home_no_show,away_no_show"
       )
       .in("competition_id", competitionIds),
   ]);
@@ -302,7 +306,7 @@ export async function getCompetitionHistory(
     supabase
       .from("matches")
       .select(
-        "id,competition_id,home_team_code,away_team_code,home_score,away_score,status"
+        "id,competition_id,home_team_code,away_team_code,home_score,away_score,status,home_no_show,away_no_show"
       )
       .in("competition_id", competitionIds),
   ]);
@@ -605,6 +609,7 @@ function buildEditionStandings(
       lost: 0,
       goalsFor: 0,
       goalsAgainst: 0,
+      noPresented: 0,
       points: 0,
     });
   }
@@ -625,6 +630,9 @@ function buildEditionStandings(
 
     home.played += 1;
     away.played += 1;
+
+    if (match.home_no_show) home.noPresented += 1;
+    if (match.away_no_show) away.noPresented += 1;
 
     home.goalsFor += match.home_score;
     home.goalsAgainst += match.away_score;
@@ -650,23 +658,23 @@ function buildEditionStandings(
     }
   }
 
-  return Array.from(table.values())
-    .map((row) => ({
-      ...row,
-      position: 0,
-      goalDifference: row.goalsFor - row.goalsAgainst,
-    }))
-    .sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.goalDifference - a.goalDifference ||
-        b.goalsFor - a.goalsFor ||
-        a.teamCode.localeCompare(b.teamCode)
-    )
-    .map((row, index) => ({
-      ...row,
-      position: index + 1,
-    }));
+  const rows = Array.from(table.values()).map((row) => ({
+    ...row,
+    position: 0,
+    goalDifference: row.goalsFor - row.goalsAgainst,
+  }));
+
+  return rankStandings(
+    rows,
+    matches.map((match) => ({
+      homeTeamCode: match.home_team_code,
+      awayTeamCode: match.away_team_code,
+      homeScore: match.home_score,
+      awayScore: match.away_score,
+      status: match.status,
+    })),
+    { win: competition.points_win, draw: competition.points_draw, loss: competition.points_loss }
+  ).map((row, index) => ({ ...row, position: index + 1 }));
 }
 
 async function getPlayerStatsForMatches(

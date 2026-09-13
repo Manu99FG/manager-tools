@@ -21,58 +21,21 @@ type CompetitionOption = {
   tiebreakers: StandingTiebreaker[];
 };
 
-const TIEBREAKER_OPTIONS: Array<{
-  value: StandingTiebreaker;
-  label: string;
-  help: string;
-}> = [
-  {
-    value: "GOAL_DIFFERENCE",
-    label: "Diferencia de goles",
-    help: "DG general de la competición.",
-  },
-  {
-    value: "GOALS_FOR",
-    label: "Goles a favor",
-    help: "Más goles marcados.",
-  },
-  {
-    value: "WINS",
-    label: "Victorias",
-    help: "Mayor número de partidos ganados.",
-  },
-  {
-    value: "HEAD_TO_HEAD_POINTS",
-    label: "Enfrentamientos directos · puntos",
-    help: "Mini-clasificación entre los clubes empatados.",
-  },
-  {
-    value: "HEAD_TO_HEAD_GOAL_DIFFERENCE",
-    label: "Enfrentamientos directos · DG",
-    help: "Diferencia de goles entre los clubes empatados.",
-  },
-  {
-    value: "HEAD_TO_HEAD_GOALS_FOR",
-    label: "Enfrentamientos directos · GF",
-    help: "Goles a favor entre los clubes empatados.",
-  },
-  {
-    value: "FEWER_NO_SHOWS",
-    label: "Menos NO PRESENTADOS",
-    help: "Prioriza al club con menos NP.",
-  },
-];
+const FIXED_TIEBREAKERS = [
+  "FEWER_NO_SHOWS",
+  "HEAD_TO_HEAD_POINTS",
+  "GOAL_DIFFERENCE",
+  "GOALS_FOR",
+] satisfies StandingTiebreaker[];
 
-function normalizeTiebreakers(
-  value: StandingTiebreaker[] | undefined
-) {
-  return value?.length
-    ? value
-    : ([
-        "GOAL_DIFFERENCE",
-        "GOALS_FOR",
-      ] satisfies StandingTiebreaker[]);
-}
+const FIXED_TIEBREAKER_LABELS = [
+  ["1", "Puntos", "Mayor número de puntos."],
+  ["2", "Partidos no presentados", "Menos NP obtiene mejor posición."],
+  ["3", "Enfrentamientos directos", "Puntos obtenidos entre los equipos que siguen empatados."],
+  ["4", "Diferencia de goles", "Diferencia de goles general de la competición."],
+  ["5", "Goles a favor", "Mayor número de goles marcados."],
+] as const;
+
 
 export default function CompetitionAdvancedSettingsAdmin({
   competitions,
@@ -99,9 +62,6 @@ export default function CompetitionAdvancedSettingsAdmin({
   const [pointsDraw, setPointsDraw] = useState(1);
   const [pointsLoss, setPointsLoss] = useState(0);
   const [homeAndAway, setHomeAndAway] = useState(true);
-  const [tiebreakers, setTiebreakers] = useState<
-    StandingTiebreaker[]
-  >(["GOAL_DIFFERENCE", "GOALS_FOR"]);
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,32 +75,10 @@ export default function CompetitionAdvancedSettingsAdmin({
     setPointsDraw(selected.pointsDraw);
     setPointsLoss(selected.pointsLoss);
     setHomeAndAway(selected.homeAndAway);
-    setTiebreakers(normalizeTiebreakers(selected.tiebreakers));
     setMessage(null);
     setError(null);
   }, [selected]);
 
-  function moveTiebreaker(index: number, direction: -1 | 1) {
-    setTiebreakers((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function toggleTiebreaker(value: StandingTiebreaker) {
-    setTiebreakers((current) => {
-      if (current.includes(value)) {
-        if (current.length === 1) return current;
-        return current.filter((item) => item !== value);
-      }
-
-      return [...current, value];
-    });
-  }
 
   async function save() {
     if (!selected) return;
@@ -164,7 +102,7 @@ export default function CompetitionAdvancedSettingsAdmin({
             pointsDraw,
             pointsLoss,
             homeAndAway,
-            tiebreakers,
+            tiebreakers: FIXED_TIEBREAKERS,
           }),
         }
       );
@@ -201,14 +139,14 @@ export default function CompetitionAdvancedSettingsAdmin({
           <span>COMPETICIONES · AJUSTES</span>
           <h2>Configuración avanzada</h2>
           <p>
-            Reglas propias de cada competición: puntuación,
-            desempates, formato y NO PRESENTADO.
+            Puntuación y formato de cada competición. El sistema de
+            clasificación y la regla de NO PRESENTADO son globales.
           </p>
         </div>
 
         <div className="v3121-settings-badge">
           <b>V31.21</b>
-          <span>Reglamento configurable</span>
+          <span>Reglamento global</span>
         </div>
       </div>
 
@@ -344,89 +282,29 @@ export default function CompetitionAdvancedSettingsAdmin({
             <div className="v3121-card-title">
               <span>03</span>
               <div>
-                <h3>Criterios de desempate</h3>
+                <h3>Sistema de clasificación</h3>
                 <p>
-                  Los puntos siempre son el primer criterio.
-                  Ordena aquí qué se aplica después.
+                  El reglamento es único para todas las competiciones con tabla.
+                  Estos criterios no se pueden modificar por competición.
                 </p>
               </div>
             </div>
 
-            <div className="v3121-tiebreak-layout">
-              <div className="v3121-tiebreak-order">
-                {tiebreakers.map((value, index) => {
-                  const option = TIEBREAKER_OPTIONS.find(
-                    (item) => item.value === value
-                  );
-
-                  if (!option) return null;
-
-                  return (
-                    <div
-                      className="v3121-tiebreak-row"
-                      key={value}
-                    >
-                      <strong>{index + 1}</strong>
-                      <span>
-                        <b>{option.label}</b>
-                        <small>{option.help}</small>
-                      </span>
-                      <div>
-                        <button
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() =>
-                            moveTiebreaker(index, -1)
-                          }
-                          aria-label="Subir criterio"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          disabled={
-                            index === tiebreakers.length - 1
-                          }
-                          onClick={() =>
-                            moveTiebreaker(index, 1)
-                          }
-                          aria-label="Bajar criterio"
-                        >
-                          ↓
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="v3121-tiebreak-options">
-                <span>Añadir / quitar criterios</span>
-                {TIEBREAKER_OPTIONS.map((option) => {
-                  const active = tiebreakers.includes(
-                    option.value
-                  );
-
-                  return (
-                    <button
-                      type="button"
-                      key={option.value}
-                      className={active ? "is-active" : ""}
-                      onClick={() =>
-                        toggleTiebreaker(option.value)
-                      }
-                    >
-                      <b>{active ? "✓" : "+"}</b>
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="v3121-tiebreak-order">
+              {FIXED_TIEBREAKER_LABELS.map(([number, label, help]) => (
+                <div className="v3121-tiebreak-row" key={number}>
+                  <strong>{number}</strong>
+                  <span>
+                    <b>{label}</b>
+                    <small>{help}</small>
+                  </span>
+                </div>
+              ))}
             </div>
 
             <div className="v3121-fallback-note">
-              Si todos los criterios siguen empatados, se utiliza
-              el código del club como último criterio técnico estable.
+              Si los cinco criterios siguen empatados, el código del club se usa
+              únicamente como último criterio técnico estable.
             </div>
           </section>
 

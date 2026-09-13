@@ -16,15 +16,12 @@ const VALID_STATUSES = new Set<CompetitionStatus>([
   "FINISHED",
 ]);
 
-const VALID_TIEBREAKERS = new Set<StandingTiebreaker>([
+const FIXED_TIEBREAKERS = [
+  "FEWER_NO_SHOWS",
+  "HEAD_TO_HEAD_POINTS",
   "GOAL_DIFFERENCE",
   "GOALS_FOR",
-  "WINS",
-  "HEAD_TO_HEAD_POINTS",
-  "HEAD_TO_HEAD_GOAL_DIFFERENCE",
-  "HEAD_TO_HEAD_GOALS_FOR",
-  "FEWER_NO_SHOWS",
-]);
+] satisfies StandingTiebreaker[];
 
 function integerBetween(
   value: unknown,
@@ -98,29 +95,8 @@ export async function POST(request: Request) {
       "Puntos por derrota"
     );
 
-    const tiebreakers = Array.isArray(body.tiebreakers)
-      ? Array.from(
-          new Set(
-            body.tiebreakers.filter(
-              (value): value is StandingTiebreaker =>
-                typeof value === "string" &&
-                VALID_TIEBREAKERS.has(
-                  value as StandingTiebreaker
-                )
-            )
-          )
-        )
-      : [];
-
-    if (!tiebreakers.length) {
-      return NextResponse.json(
-        {
-          error:
-            "Selecciona al menos un criterio de desempate.",
-        },
-        { status: 400 }
-      );
-    }
+    // El reglamento de clasificación es global y no configurable.
+    const tiebreakers = FIXED_TIEBREAKERS;
 
     const supabase = getSupabaseAdmin();
 
