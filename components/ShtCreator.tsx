@@ -647,7 +647,7 @@ function createEmptyBench(): BenchSlot[] {
 function getPositionStorageKey(
   player: GlobalEsmsPlayer
 ) {
-  return `manager-tools-position:${player.teamCode}:${player.name}`;
+  return `manager-tools-position-v2:${player.teamCode}:${player.name}`;
 }
 
 function getPositionClass(

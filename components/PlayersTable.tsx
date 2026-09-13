@@ -43,7 +43,7 @@ export default function PlayersTable({ players, team }: { players: PlayerWithHis
     const resolved: Record<string, EsmsPosition> = {};
     for (const player of players) {
       const playerKey = getPlayerKey(player);
-      const storageKey = `manager-tools-position:${playerKey}`;
+      const storageKey = `manager-tools-position-v2:${playerKey}`;
       const previousPosition = localStorage.getItem(storageKey) as EsmsPosition | null;
       if (!hasMainRatingTie(player)) {
         const currentPosition = getPlayerProfile(player);

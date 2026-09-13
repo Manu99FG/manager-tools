@@ -8,74 +8,57 @@ export type EsmsPosition =
   | "AM"
   | "FW";
 
-const HYBRID_MAX_DIFFERENCE = 5;
+/**
+ * Reglamento global de posiciones ESMS.
+ *
+ * GK -> St principal.
+ * DF -> Tk principal.
+ * DM -> Ps principal + Tk como secundaria dominante.
+ * MF -> Ps principal + Tk y Sh superiores a 10.
+ * AM -> Ps principal + Sh como secundaria dominante.
+ * FW -> Sh principal.
+ *
+ * "Principal" significa la habilidad de mayor valor. En caso de empate
+ * por el máximo se mantiene una prioridad determinista: St -> Tk -> Sh -> Ps.
+ * Para jugadores con Ps estrictamente principal, MF tiene prioridad cuando
+ * Tk > 10 y Sh > 10; si no, Tk >= Sh da DM y Sh > Tk da AM.
+ */
 
 export function hasMainRatingTie(player: EsmsPlayer): boolean {
-  const ratings = [
-    player.st,
-    player.tk,
-    player.ps,
-    player.sh,
-  ];
-
+  const ratings = [player.st, player.tk, player.ps, player.sh];
   const max = Math.max(...ratings);
-
   return ratings.filter((value) => value === max).length > 1;
 }
 
-export function getPlayerProfile(
-  player: EsmsPlayer
-): EsmsPosition {
+export function getPlayerProfile(player: EsmsPlayer): EsmsPosition {
   const { st, tk, ps, sh } = player;
-
   const max = Math.max(st, tk, ps, sh);
 
-  if (hasMainRatingTie(player)) {
-    return getTieFallbackPosition(player);
-  }
+  // Habilidades principales puras / empates por el máximo.
+  if (st === max) return "GK";
+  if (tk === max) return "DF";
+  if (sh === max) return "FW";
 
-  if (st === max) {
-    return "GK";
-  }
+  // A partir de aquí Ps es estrictamente la habilidad principal.
+  if (ps === max) {
+    // Centrocampista equilibrado: ambas secundarias ofensiva/defensiva > 10.
+    if (tk > 10 && sh > 10) return "MF";
 
-  if (sh === max) {
-    return "FW";
-  }
+    // Mediocentro defensivo: Tk es la secundaria dominante.
+    if (tk >= sh) return "DM";
 
-  if (tk === max) {
-    return "DF";
-  }
-
-  const differenceTk = ps - tk;
-  const differenceSh = ps - sh;
-
-  if (
-    tk > sh &&
-    differenceTk <= HYBRID_MAX_DIFFERENCE
-  ) {
-    return "DM";
-  }
-
-  if (
-    sh > tk &&
-    differenceSh <= HYBRID_MAX_DIFFERENCE
-  ) {
+    // Mediocentro ofensivo: Sh es la secundaria dominante.
     return "AM";
   }
 
+  // Salvaguarda teórica; Math.max garantiza que no debería alcanzarse.
   return "MF";
 }
 
-export function getTieFallbackPosition(
-  player: EsmsPlayer
-): EsmsPosition {
-  const { st, tk, ps, sh } = player;
-
-  const max = Math.max(st, tk, ps, sh);
-
-  if (st === max) return "GK";
-  if (sh === max) return "FW";
-  if (tk === max) return "DF";
-
-  return "MF";
+/**
+ * Se conserva por compatibilidad con componentes antiguos que resolvían
+ * manualmente empates. Ahora usa exactamente el reglamento global.
+ */
+export function getTieFallbackPosition(player: EsmsPlayer): EsmsPosition {
+  return getPlayerProfile(player);
 }

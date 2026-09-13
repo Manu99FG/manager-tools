@@ -229,7 +229,7 @@ export default function PlayerSearch({
         getPlayerKey(player);
 
       const storageKey =
-        `manager-tools-position:${playerKey}`;
+        `manager-tools-position-v2:${playerKey}`;
 
       const previous =
         localStorage.getItem(
