@@ -4406,8 +4406,8 @@ img {
 .v3111-zone-legend i{width:8px;height:8px;border-radius:2px}
 .v3111-neutral-note{border-radius:20px;background:var(--mt-surface-soft);padding:5px 8px;color:var(--mt-muted)!important;font-size:7px;font-weight:850}
 
-.v3111-table-wrap{min-width:800px;overflow-x:auto}
-.v3111-table-head,.v3111-table-row{display:grid;grid-template-columns:42px minmax(180px,1fr) repeat(9,46px) 136px;align-items:center}
+.v3111-table-wrap{width:100%;min-width:0;overflow:hidden}
+.v3111-table-head,.v3111-table-row{display:grid;grid-template-columns:34px minmax(132px,1fr) repeat(9,minmax(30px,34px)) 110px;align-items:center}
 .v3111-table-head{min-height:34px;border-bottom:1px solid var(--mt-line);background:var(--mt-surface-soft);color:var(--mt-text)!important;font-size:7px;font-weight:950}
 .v3111-table-head>span:not(:nth-child(2)){text-align:center}
 .v3111-table-row{position:relative;min-height:46px;border-bottom:1px solid var(--mt-line);color:var(--mt-muted)!important;font-size:8px}
@@ -4419,9 +4419,10 @@ img {
 .v3111-club img{object-fit:contain}
 .v3111-club strong{color:var(--mt-text)!important;font-size:8px}
 .v3111-zone-line{position:absolute;left:-1px;top:8px;bottom:8px;width:3px;border-radius:4px}
-.v3111-table-row>strong{color:var(--mt-text)!important;text-align:center;font-size:8px;font-weight:850}
-.v3111-table-row .v311-form{justify-content:center;min-width:0;gap:4px;overflow:hidden}
-.v3111-table-row .v311-form i{flex:0 0 23px}
+.v3111-table-row>strong{color:var(--mt-text)!important;text-align:center;font-size:8px;font-weight:900}
+.v31118-points-value,.v31118-np-value{color:var(--mt-text)!important;text-align:center;font-size:8px!important;font-weight:900!important}
+.v3111-table-row .v311-form{display:flex;min-width:0;justify-content:center;gap:3px;overflow:hidden}
+.v3111-table-row .v311-form i{width:18px;height:18px;flex:0 0 18px;font-size:6px}
 
 .v3111-side{display:flex;flex-direction:column;gap:10px}
 .v3111-side-card{padding:13px}
@@ -8540,4 +8541,14 @@ body{
   color: #686868;
   font-size: 12px;
   line-height: 1.45;
+}
+
+@media (max-width:1450px){
+  .v3111-table-head,.v3111-table-row{
+    grid-template-columns:32px minmax(118px,1fr) repeat(9,minmax(27px,31px)) 104px;
+  }
+  .v3111-club{gap:6px}
+  .v3111-club img{width:24px;height:24px}
+  .v3111-table-row .v311-form{gap:2px}
+  .v3111-table-row .v311-form i{width:18px;height:18px;flex-basis:18px}
 }

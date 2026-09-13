@@ -2921,7 +2921,7 @@ function StandingsTable({
             >
               {row.noPresented}
             </span>
-            <strong>{row.points}</strong>
+            <span className="v31118-points-value">{row.points}</span>
             <FormDots teamCode={row.teamCode} matches={matches} />
           </Link>
         );
