@@ -677,15 +677,15 @@ export async function getPlayerMatchHistory(
     ) => {
       const aDate =
         new Date(
-          a.playedAt ??
-            a.scheduledAt ??
+          a.scheduledAt ??
+            a.playedAt ??
             0
         ).getTime();
 
       const bDate =
         new Date(
-          b.playedAt ??
-            b.scheduledAt ??
+          b.scheduledAt ??
+            b.playedAt ??
             0
         ).getTime();
 

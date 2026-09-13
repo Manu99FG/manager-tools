@@ -528,8 +528,8 @@ function MatchRow({
     <tr className="border-b border-[var(--mt-line)] last:border-0">
       <td className="whitespace-nowrap p-3 text-[var(--mt-muted)]">
         {formatDate(
-          row.playedAt ??
-            row.scheduledAt
+          row.scheduledAt ??
+            row.playedAt
         )}
       </td>
 
