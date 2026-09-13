@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Local reference archive; too large for GitHub's 100 MB file limit.
+README_ORIGEN_JUGADORES.zip

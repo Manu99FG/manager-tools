@@ -24,6 +24,9 @@ type Props = {
 };
 
 const LEAGUE_RULES = {
+  // Activa el formato extendido del simulador: DM y AM son posiciones válidas.
+  Positions: 1,
+  Tactic_7: 1,
   Max_Skill: 30,
   Min_DF: 2,
   Max_DF: 8,
