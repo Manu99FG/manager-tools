@@ -1206,7 +1206,7 @@ export async function getPlayerPageData(
 
       supabase
         .from(
-          "transfers"
+          "market_transfers_combined"
         )
         .select("*")
         .eq(
@@ -1217,6 +1217,8 @@ export async function getPlayerPageData(
           "transfer_date",
           {
             ascending:
+              false,
+            nullsFirst:
               false,
           }
         ),

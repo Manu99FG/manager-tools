@@ -8,10 +8,10 @@ export type MarketMovementType =
 
 type TransferRow = {
   id: string;
-  player_id: string;
+  player_id: string | null;
   from_team_code: string | null;
   to_team_code: string | null;
-  transfer_date: string;
+  transfer_date: string | null;
   fee: number | string | null;
   season_id: string | null;
   movement_type: MarketMovementType | null;
@@ -25,6 +25,7 @@ type TransferRow = {
   notes: string | null;
   deal_id: string | null;
   deal_role: "PRIMARY" | "EXCHANGE" | null;
+  market_item_label?: string | null;
 };
 
 type PlayerRow = {
@@ -40,11 +41,11 @@ type SeasonRow = {
 
 export type MarketTransfer = {
   id: string;
-  playerId: string;
+  playerId: string | null;
   playerName: string;
   fromTeamCode: string | null;
   toTeamCode: string | null;
-  transferDate: string;
+  transferDate: string | null;
   fee: number | null;
   seasonId: string | null;
   seasonName: string | null;
@@ -140,11 +141,11 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
   const [transfersResult, playersResult, seasonsResult] =
     await Promise.all([
       supabase
-        .from("transfers")
+        .from("market_transfers_combined")
         .select(
-          "id,player_id,from_team_code,to_team_code,transfer_date,fee,season_id,movement_type,owner_team_code,loan_start_date,loan_end_date,loan_fee,purchase_option,purchase_option_fee,parent_movement_id,notes,deal_id,deal_role"
+          "id,player_id,from_team_code,to_team_code,transfer_date,fee,season_id,movement_type,owner_team_code,loan_start_date,loan_end_date,loan_fee,purchase_option,purchase_option_fee,parent_movement_id,notes,deal_id,deal_role,market_item_label"
         )
-        .order("transfer_date", { ascending: false }),
+        .order("transfer_date", { ascending: false, nullsFirst: false }),
       supabase
         .from("players")
         .select("id,esms_name,full_name"),
@@ -174,7 +175,7 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
   const movements: MarketTransfer[] = (
     (transfersResult.data ?? []) as TransferRow[]
   ).map((row) => {
-    const player = playerById.get(row.player_id);
+    const player = row.player_id ? playerById.get(row.player_id) : undefined;
     const season = row.season_id
       ? seasonById.get(row.season_id)
       : null;
@@ -185,7 +186,9 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
       playerName:
         player?.full_name?.trim() ||
         player?.esms_name ||
-        row.player_id,
+        row.market_item_label ||
+        row.player_id ||
+        "Activo de mercado",
       fromTeamCode: row.from_team_code,
       toTeamCode: row.to_team_code,
       transferDate: row.transfer_date,
@@ -211,16 +214,15 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
     };
   });
 
-  const dealCounts = new Map<string, number>();
+  const dealDirections = new Map<string, Set<string>>();
   const dealCash = new Map<string, number>();
 
   for (const movement of movements) {
     if (!movement.dealId) continue;
 
-    dealCounts.set(
-      movement.dealId,
-      (dealCounts.get(movement.dealId) ?? 0) + 1
-    );
+    const directions = dealDirections.get(movement.dealId) ?? new Set<string>();
+    directions.add(`${movement.fromTeamCode ?? ""}->${movement.toTeamCode ?? ""}`);
+    dealDirections.set(movement.dealId, directions);
 
     if (movement.movementType === "TRANSFER") {
       dealCash.set(
@@ -233,8 +235,9 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
 
   for (const movement of movements) {
     movement.isExchange =
+      movement.movementType === "TRANSFER" &&
       movement.dealId !== null &&
-      (dealCounts.get(movement.dealId) ?? 0) > 1;
+      (dealDirections.get(movement.dealId)?.size ?? 0) > 1;
 
     movement.dealCash = movement.dealId
       ? dealCash.get(movement.dealId) ?? 0
@@ -372,6 +375,7 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
           movement.parentMovementId === loan.id &&
           (movement.movementType === "LOAN_RETURN" ||
             movement.movementType === "TRANSFER") &&
+          movement.transferDate !== null &&
           new Date(movement.transferDate).getTime() <= now
       );
     });
@@ -457,7 +461,7 @@ export async function getMarketHistoryData(): Promise<MarketHistoryData> {
       .sort(
         (a, b) =>
           (b.fee ?? 0) - (a.fee ?? 0) ||
-          b.transferDate.localeCompare(a.transferDate)
+          String(b.transferDate ?? "").localeCompare(String(a.transferDate ?? ""))
       )
       .slice(0, 25),
 

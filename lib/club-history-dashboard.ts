@@ -49,15 +49,17 @@ export async function getClubHistoryDashboard(teamCodeInput:string):Promise<Club
     db.from("competitions").select("*"),
     db.from("competition_teams").select("*").eq("team_code",teamCode),
     db.from("players").select("id,esms_name,full_name"),
-    db.from("transfers").select("*").or(`from_team_code.eq.${teamCode},to_team_code.eq.${teamCode}`),
+    db.from("market_transfers_combined").select("*").or(`from_team_code.eq.${teamCode},to_team_code.eq.${teamCode}`),
   ]);
   for(const r of [seasonsR,competitionsR,participantR,playersR,transfersR]) if(r.error) throw r.error;
   const seasons=(seasonsR.data??[]) as Row[];
   const seasonById=new Map(seasons.map(x=>[String(x.id),s(x,"name")??"Temporada"]));
   const allCompetitions=(competitionsR.data??[]) as Row[];
   const compById=new Map(allCompetitions.map(x=>[String(x.id),x]));
+  const playerById=new Map(((playersR.data??[]) as Row[]).map(p=>[String(p.id),s(p,"full_name")??s(p,"esms_name")??String(p.id)]));
+  const historyTransfers:HistoryTransfer[]=((transfersR.data??[]) as Row[]).filter(r=>s(r,"movement_type")!=="PENDING").map(r=>{const into=s(r,"to_team_code")===teamCode;const type=s(r,"movement_type")??"TRANSFER";const fee=type==="LOAN"?nn(r,"loan_fee"):nn(r,"fee");const sid=s(r,"season_id");return{id:String(r.id),playerId:s(r,"player_id"),playerName:playerById.get(String(r.player_id))??s(r,"market_item_label")??String(r.player_id??"Activo de mercado"),seasonId:sid,season:sid?seasonById.get(sid)??"Temporada":"Temporada",direction:into?"IN":"OUT",type,otherClub:into?(s(r,"from_team_code")??s(r,"owner_team_code")??"—"):(s(r,"to_team_code")??"—"),fee,date:s(r,"transfer_date")};});
   const participantIds=Array.from(new Set(((participantR.data??[]) as Row[]).map(x=>String(x.competition_id))));
-  if(!participantIds.length) return {teamCode,seasons:seasons.map(x=>({id:String(x.id),name:s(x,"name")??"Temporada"})),competitions:[],matches:[],participations:[],players:[],playerSeasons:[],transfers:[]};
+  if(!participantIds.length) return {teamCode,seasons:seasons.map(x=>({id:String(x.id),name:s(x,"name")??"Temporada"})),competitions:[],matches:[],participations:[],players:[],playerSeasons:[],transfers:historyTransfers};
 
   const [teamsR, roundsR, matchesR, statsR] = await Promise.all([
     db.from("competition_teams").select("*").in("competition_id",participantIds),
@@ -120,9 +122,6 @@ export async function getClubHistoryDashboard(teamCodeInput:string):Promise<Club
   const players:HistoryPlayer[]=[...totalMap.values()].map(x=>({playerId:x.playerId,name:x.name,appearances:x.appearances,minutes:x.minutes,goals:x.goals,assists:x.assists,mom:x.mom,dp:x.dp,seasons:x.seasons.size,youngestAge:x.youngest,oldestAge:x.oldest}));
   const playerSeasons:HistoryPlayerSeason[]=[...seasonMap.values()].map(x=>({...x,season:seasonById.get(x.seasonId)??"Temporada"}));
 
-  const playerById=new Map(((playersR.data??[]) as Row[]).map(p=>[String(p.id),s(p,"full_name")??s(p,"esms_name")??String(p.id)]));
-  const transfers:HistoryTransfer[]=((transfersR.data??[]) as Row[]).filter(r=>s(r,"movement_type")!=="PENDING").map(r=>{const into=s(r,"to_team_code")===teamCode;const type=s(r,"movement_type")??"TRANSFER";const fee=type==="LOAN"?nn(r,"loan_fee"):nn(r,"fee");const sid=s(r,"season_id");return{id:String(r.id),playerId:s(r,"player_id"),playerName:playerById.get(String(r.player_id))??String(r.player_id??"Jugador"),seasonId:sid,season:sid?seasonById.get(sid)??"Temporada":"Temporada",direction:into?"IN":"OUT",type,otherClub:into?(s(r,"from_team_code")??s(r,"owner_team_code")??"—"):(s(r,"to_team_code")??"—"),fee,date:s(r,"transfer_date")};});
-
-  return {teamCode,seasons:seasons.map(x=>({id:String(x.id),name:s(x,"name")??"Temporada"})),competitions:participantIds.map(id=>compById.get(id)).filter(Boolean).map(c=>({id:String(c!.id),name:s(c!,"name")??"Competición"})),matches,participations,players,playerSeasons,transfers};
+  return {teamCode,seasons:seasons.map(x=>({id:String(x.id),name:s(x,"name")??"Temporada"})),competitions:participantIds.map(id=>compById.get(id)).filter(Boolean).map(c=>({id:String(c!.id),name:s(c!,"name")??"Competición"})),matches,participations,players,playerSeasons,transfers:historyTransfers};
 }
 

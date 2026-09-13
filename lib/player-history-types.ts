@@ -80,7 +80,7 @@ export type PlayerTransfer = {
 
   to_team_code: string;
 
-  transfer_date: string;
+  transfer_date: string | null;
 
   fee?: number | null;
   season_id?: string | null;

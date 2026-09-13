@@ -74,8 +74,13 @@ const PROGRESSION_STATS =
   ]);
 
 function formatDate(
-  value: string
+  value: string | null | undefined
 ) {
+  if (!value) return "Fecha no registrada";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Fecha no registrada";
+
   return new Intl.DateTimeFormat(
     "es-ES",
     {
@@ -83,9 +88,7 @@ function formatDate(
       month: "2-digit",
       year: "numeric",
     }
-  ).format(
-    new Date(value)
-  );
+  ).format(date);
 }
 
 function formatShortDate(

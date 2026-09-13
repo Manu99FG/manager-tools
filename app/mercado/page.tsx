@@ -22,12 +22,15 @@ function formatMoney(value: number) {
   return money.format(value);
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Fecha no registrada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Fecha no registrada";
   return new Intl.DateTimeFormat("es-ES", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export default async function MarketPage() {
@@ -165,7 +168,7 @@ export default async function MarketPage() {
           {data.activeLoans.map((loan) => (
             <Link
               key={loan.id}
-              href={`/jugadores/${loan.playerId}`}
+              href={loan.playerId ? `/jugadores/${loan.playerId}` : "/mercado"}
               className="app-panel-soft rounded-[13px] p-5 transition hover:border-[var(--mt-gold)]"
             >
               <div className="flex items-start justify-between gap-4">
@@ -251,7 +254,7 @@ export default async function MarketPage() {
                 : "Sin datos"
             }
             href={
-              biggestTransfer
+              biggestTransfer?.playerId
                 ? `/jugadores/${biggestTransfer.playerId}`
                 : undefined
             }
@@ -442,6 +445,8 @@ function MovementTable({
   movements: MarketTransfer[];
   ranked?: boolean;
 }) {
+  const visibleMovements = uniqueOperations(movements);
+
   return (
     <div className="app-panel-soft mt-4 overflow-hidden rounded-2xl">
       <div className="overflow-x-auto">
@@ -478,7 +483,7 @@ function MovementTable({
           </thead>
 
           <tbody>
-            {movements.map((movement, index) => (
+            {visibleMovements.map((movement, index) => (
               <tr
                 key={movement.id}
                 className="border-t border-[var(--mt-line)]"
@@ -490,15 +495,28 @@ function MovementTable({
                 ) : null}
 
                 <td className="px-4 py-3">
-                  <Link
-                    href={`/jugadores/${movement.playerId}`}
-                    className="font-black text-[var(--mt-text)] hover:text-[var(--mt-gold-dark)]"
-                  >
-                    {movement.playerName.replaceAll(
-                      "_",
-                      " "
-                    )}
-                  </Link>
+                  {(() => {
+                    const sameDirectionMembers = (movement.dealMembers ?? []).filter(
+                      (member) =>
+                        member.fromTeamCode === movement.fromTeamCode &&
+                        member.toTeamCode === movement.toTeamCode
+                    );
+                    const label = (sameDirectionMembers.length > 1
+                      ? sameDirectionMembers.map((member) => member.playerName).join(" · ")
+                      : movement.playerName
+                    ).replaceAll("_", " ");
+
+                    return movement.playerId ? (
+                      <Link
+                        href={movement.playerId ? `/jugadores/${movement.playerId}` : "/mercado"}
+                        className="font-black text-[var(--mt-text)] hover:text-[var(--mt-gold-dark)]"
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="font-black text-[var(--mt-text)]">{label}</span>
+                    );
+                  })()}
                 </td>
 
                 <td className="px-3 py-3">
@@ -650,7 +668,7 @@ function MovementCard({
 
   return (
     <Link
-      href={`/jugadores/${movement.playerId}`}
+      href={movement.playerId ? `/jugadores/${movement.playerId}` : "/mercado"}
       className="block rounded-xl border border-[var(--mt-line)] bg-[var(--mt-surface)] p-4 transition hover:border-[var(--mt-gold)]"
     >
       <div className="flex items-start justify-between gap-3">
@@ -658,7 +676,20 @@ function MovementCard({
           <div className="truncate font-black text-[var(--mt-text)]">
             {movement.isExchange
               ? "Intercambio de jugadores"
-              : movement.playerName.replaceAll("_", " ")}
+              : (movement.dealMembers?.filter(
+                    (member) =>
+                      member.fromTeamCode === movement.fromTeamCode &&
+                      member.toTeamCode === movement.toTeamCode
+                  ).length ?? 0) > 1
+                ? (movement.dealMembers ?? [])
+                    .filter(
+                      (member) =>
+                        member.fromTeamCode === movement.fromTeamCode &&
+                        member.toTeamCode === movement.toTeamCode
+                    )
+                    .map((member) => member.playerName.replaceAll("_", " "))
+                    .join(" · ")
+                : movement.playerName.replaceAll("_", " ")}
           </div>
           <div className="mt-1 text-xs text-[var(--mt-muted)]">
             {movement.seasonName ?? formatDate(movement.transferDate)}
