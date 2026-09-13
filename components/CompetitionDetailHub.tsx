@@ -316,6 +316,7 @@ export default function CompetitionDetailHub({
   const [keeperClub, setKeeperClub] = useState<string>("ALL");
   const [keeperMinimum, setKeeperMinimum] = useState<string>("5");
   const [historySubTab, setHistorySubTab] = useState<HistorySubTab>("palmares");
+  const [standingsRoundId, setStandingsRoundId] = useState<string>("");
 
   useEffect(() => {
     const rawTab = searchParams.get("tab");
@@ -377,6 +378,107 @@ export default function CompetitionDetailHub({
 
     return map;
   }, [matches]);
+
+  const standingsRounds = useMemo(
+    () =>
+      rounds
+        .filter(
+          (round) =>
+            isStandingsRound(round) &&
+            (matchesByRound.get(round.id) ?? []).some(
+              (match) =>
+                match.status === "PLAYED" &&
+                match.homeScore !== null &&
+                match.awayScore !== null
+            )
+        )
+        .sort((a, b) => a.number - b.number),
+    [rounds, matchesByRound]
+  );
+
+  const effectiveStandingsRoundId =
+    standingsRoundId ||
+    standingsRounds[standingsRounds.length - 1]?.id ||
+    "";
+
+  const effectiveStandingsRound =
+    standingsRounds.find((round) => round.id === effectiveStandingsRoundId) ??
+    null;
+
+  const standingsMatches = useMemo(() => {
+    if (!effectiveStandingsRound) return playedMatches;
+
+    const allowedRoundIds = new Set(
+      standingsRounds
+        .filter((round) => round.number <= effectiveStandingsRound.number)
+        .map((round) => round.id)
+    );
+
+    return playedMatches.filter(
+      (match) => match.roundId && allowedRoundIds.has(match.roundId)
+    );
+  }, [effectiveStandingsRound, standingsRounds, playedMatches]);
+
+  const selectedStandings = useMemo(
+    () =>
+      buildStandingsForTeams(
+        teams,
+        standingsMatches,
+        competition
+      ),
+    [teams, standingsMatches, competition]
+  );
+
+  const selectedGroupStandings = useMemo(
+    () =>
+      groupStandings.map((group) => {
+        const groupCodes = group.standings.map((row) => row.teamCode);
+        const codeSet = new Set(groupCodes);
+        const groupMatches = standingsMatches.filter(
+          (match) =>
+            codeSet.has(match.homeTeamCode) &&
+            codeSet.has(match.awayTeamCode)
+        );
+
+        return {
+          ...group,
+          standings: buildStandingsForTeams(
+            groupCodes,
+            groupMatches,
+            competition
+          ),
+        };
+      }),
+    [groupStandings, standingsMatches, competition]
+  );
+
+  const standingsSummary = useMemo(() => {
+    const goals = standingsMatches.reduce(
+      (sum, match) =>
+        sum + (match.homeScore ?? 0) + (match.awayScore ?? 0),
+      0
+    );
+    const yellows = standingsMatches.reduce(
+      (sum, match) =>
+        sum + (disciplineByMatch[match.id]?.yellowCards ?? 0),
+      0
+    );
+    const reds = standingsMatches.reduce(
+      (sum, match) =>
+        sum + (disciplineByMatch[match.id]?.redCards ?? 0),
+      0
+    );
+
+    return {
+      goals,
+      yellows,
+      reds,
+      average:
+        standingsMatches.length > 0
+          ? goals / standingsMatches.length
+          : 0,
+    };
+  }, [standingsMatches, disciplineByMatch]);
 
   const nextRound = useMemo(
     () =>
@@ -1157,15 +1259,15 @@ export default function CompetitionDetailHub({
               <>
                 <OverviewKpi label="Grupos" value={groupStandings.length} detail="en competición" icon="people" />
                 <OverviewKpi label="Partidos" value={`${playedMatches.length}/${matches.length}`} detail="disputados" icon="field" />
-                <OverviewKpi label="Goles" value={totalGoals} detail={playedMatches.length ? `${goalAverage.toFixed(2)} por partido` : "0 por partido"} icon="ball" />
+                <OverviewKpi label="Goles" value={standingsSummary.goals} detail={playedMatches.length ? `${goalAverage.toFixed(2)} por partido` : "0 por partido"} icon="ball" />
                 <OverviewKpi label="Jornadas" value={`${completedRounds}/${rounds.length}`} detail="completadas" icon="calendar" />
               </>
             ) : (
               <>
-                <OverviewKpi label="Partidos" value={playedMatches.length} detail="completados" icon="field" />
-                <OverviewKpi label="Goles" value={totalGoals} detail={playedMatches.length ? `${goalAverage.toFixed(2)} por partido` : "0 por partido"} icon="ball" />
-                <OverviewKpi label="Amarillas" value={calendarCompetitionYellows} detail={playedMatches.length ? `${(calendarCompetitionYellows / playedMatches.length).toFixed(2)} por partido` : "0 por partido"} icon="yellow" />
-                <OverviewKpi label="Rojas" value={calendarCompetitionReds} detail={playedMatches.length ? `${(calendarCompetitionReds / playedMatches.length).toFixed(2)} por partido` : "0 por partido"} icon="red" />
+                <OverviewKpi label="Partidos" value={standingsMatches.length} detail="completados" icon="field" />
+                <OverviewKpi label="Goles" value={standingsSummary.goals} detail={playedMatches.length ? `${goalAverage.toFixed(2)} por partido` : "0 por partido"} icon="ball" />
+                <OverviewKpi label="Amarillas" value={standingsSummary.yellows} detail={playedMatches.length ? `${(calendarCompetitionYellows / playedMatches.length).toFixed(2)} por partido` : "0 por partido"} icon="yellow" />
+                <OverviewKpi label="Rojas" value={standingsSummary.reds} detail={playedMatches.length ? `${(calendarCompetitionReds / playedMatches.length).toFixed(2)} por partido` : "0 por partido"} icon="red" />
               </>
             )}
           </section>
@@ -1312,7 +1414,7 @@ export default function CompetitionDetailHub({
                           <span className="v3113-top-pos" style={zone ? { backgroundColor: zone.color, color: contrastText(zone.color) } : undefined}>{row.position}</span>
                           <span className="v3113-top-club"><Image src={getClubLogo(row.teamCode)} alt="" width={22} height={22} /><b>{getClubName(row.teamCode)}</b></span>
                           <span>{row.played}</span><strong>{row.points}</strong><span>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</span>
-                          <FormDots teamCode={row.teamCode} matches={playedMatches} />
+                          <FormDots teamCode={row.teamCode} matches={standingsMatches} />
                         </Link>
                       );
                     })}
@@ -1416,12 +1518,12 @@ export default function CompetitionDetailHub({
 
               <div className="v3113-season-data">
                 <SeasonData
-                  value={playedMatches.length}
+                  value={standingsMatches.length}
                   label="partidos jugados"
                   icon="field"
                 />
                 <SeasonData
-                  value={totalGoals}
+                  value={standingsSummary.goals}
                   label="goles totales"
                   icon="ball"
                 />
@@ -1436,12 +1538,12 @@ export default function CompetitionDetailHub({
                   icon="target"
                 />
                 <SeasonData
-                  value={calendarCompetitionYellows}
+                  value={standingsSummary.yellows}
                   label="amarillas"
                   icon="yellow"
                 />
                 <SeasonData
-                  value={calendarCompetitionReds}
+                  value={standingsSummary.reds}
                   label="rojas"
                   icon="red"
                 />
@@ -1499,13 +1601,19 @@ export default function CompetitionDetailHub({
               <blockquote>“EL ESFUERZO<br />DE HOY,<br />LA LEYENDA<br />DE MAÑANA”</blockquote>
             </section>
 
+            <StandingsRoundSelector
+              rounds={standingsRounds}
+              value={effectiveStandingsRoundId}
+              onChange={setStandingsRoundId}
+            />
+
             <div className="v3111-layout">
               <section className="v3111-main-card">
                 <div className="v3111-card-title">
                   <div>
                     <h2>Clasificación general</h2>
                     <p>
-                      {playedMatches.length} partidos disputados · sistema
+                      {standingsMatches.length} partidos disputados · sistema
                       {` ${competition.pointsWin}/${competition.pointsDraw}/${competition.pointsLoss}`}
                     </p>
                   </div>
@@ -1527,8 +1635,8 @@ export default function CompetitionDetailHub({
                 </div>
 
                 <StandingsTable
-                  rows={standings}
-                  matches={playedMatches}
+                  rows={selectedStandings}
+                  matches={standingsMatches}
                   zones={standingZones}
                 />
               </section>
@@ -1538,31 +1646,31 @@ export default function CompetitionDetailHub({
                   <h3>Resumen de la competición</h3>
                   <StandingSummary
                     label="Partidos jugados"
-                    value={playedMatches.length}
+                    value={standingsMatches.length}
                     icon="field"
                   />
                   <StandingSummary
                     label="Goles"
-                    value={totalGoals}
-                    detail={`${goalAverage.toFixed(2)} por partido`}
+                    value={standingsSummary.goals}
+                    detail={`${standingsSummary.average.toFixed(2)} por partido`}
                     icon="ball"
                   />
                   <StandingSummary
                     label="Amarillas"
-                    value={calendarCompetitionYellows}
+                    value={standingsSummary.yellows}
                     detail={
-                      playedMatches.length
-                        ? `${(calendarCompetitionYellows / playedMatches.length).toFixed(2)} por partido`
+                      standingsMatches.length
+                        ? `${(standingsSummary.yellows / standingsMatches.length).toFixed(2)} por partido`
                         : "0 por partido"
                     }
                     icon="yellow"
                   />
                   <StandingSummary
                     label="Rojas"
-                    value={calendarCompetitionReds}
+                    value={standingsSummary.reds}
                     detail={
-                      playedMatches.length
-                        ? `${(calendarCompetitionReds / playedMatches.length).toFixed(2)} por partido`
+                      standingsMatches.length
+                        ? `${(standingsSummary.reds / standingsMatches.length).toFixed(2)} por partido`
                         : "0 por partido"
                     }
                     icon="red"
@@ -1572,7 +1680,7 @@ export default function CompetitionDetailHub({
                 <section className="v3111-side-card">
                   <h3>Mejores rachas</h3>
                   <StreakRanking
-                    rows={buildStandingStreaks(standings, playedMatches)}
+                    rows={buildStandingStreaks(selectedStandings, standingsMatches)}
                   />
                 </section>
 
@@ -1622,7 +1730,7 @@ export default function CompetitionDetailHub({
                 title="Clasificación en casa"
                 rows={buildSplitStandings(
                   teams,
-                  playedMatches,
+                  standingsMatches,
                   "HOME",
                   competition
                 ).slice(0, 5)}
@@ -1631,7 +1739,7 @@ export default function CompetitionDetailHub({
                 title="Clasificación fuera de casa"
                 rows={buildSplitStandings(
                   teams,
-                  playedMatches,
+                  standingsMatches,
                   "AWAY",
                   competition
                 ).slice(0, 5)}
@@ -1659,10 +1767,16 @@ export default function CompetitionDetailHub({
               <blockquote>“CADA PUNTO<br />CUENTA EN<br />EL CAMINO<br />A LA GLORIA”</blockquote>
             </section>
 
+            <StandingsRoundSelector
+              rounds={standingsRounds}
+              value={effectiveStandingsRoundId}
+              onChange={setStandingsRoundId}
+            />
+
             <section className="v3111-groups-grid">
-              {groupStandings.map((group) => {
+              {selectedGroupStandings.map((group) => {
                 const groupCodes = new Set(group.standings.map((row) => row.teamCode));
-                const groupMatches = playedMatches.filter(
+                const groupMatches = standingsMatches.filter(
                   (match) =>
                     groupCodes.has(match.homeTeamCode) &&
                     groupCodes.has(match.awayTeamCode)
@@ -3367,6 +3481,172 @@ function contrastText(hex: string) {
   const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
 
   return luminance >= 155 ? "#181818" : "#FFFFFF";
+}
+
+function isStandingsRound(round: Round) {
+  const stage = String(round.stage ?? "").toUpperCase();
+  const name = String(round.name ?? "").toLowerCase();
+
+  const knockoutStages = new Set([
+    "R16",
+    "ROUND_OF_16",
+    "OCTAVOS",
+    "QF",
+    "QUARTERFINAL",
+    "QUARTER_FINAL",
+    "CUARTOS",
+    "SF",
+    "SEMIFINAL",
+    "SEMIFINALS",
+    "SEMIFINALES",
+    "FINAL",
+    "F",
+    "PLAYOFF",
+    "PLAYOFF_SEMIFINAL",
+    "PLAYOFF_FINAL",
+  ]);
+
+  if (knockoutStages.has(stage)) return false;
+
+  return !(
+    name.includes("octav") ||
+    name.includes("cuart") ||
+    name.includes("semifinal") ||
+    name === "final" ||
+    name.includes("playoff")
+  );
+}
+
+function buildStandingsForTeams(
+  teams: string[],
+  matches: Match[],
+  competition: Competition
+): Standing[] {
+  const table = new Map<string, Omit<Standing, "position" | "goalDifference">>();
+
+  for (const teamCode of teams) {
+    table.set(teamCode, {
+      teamCode,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      noPresented: 0,
+      points: 0,
+    });
+  }
+
+  for (const match of matches) {
+    if (
+      match.status !== "PLAYED" ||
+      match.homeScore === null ||
+      match.awayScore === null
+    ) {
+      continue;
+    }
+
+    const home = table.get(match.homeTeamCode);
+    const away = table.get(match.awayTeamCode);
+    if (!home || !away) continue;
+
+    home.played += 1;
+    away.played += 1;
+
+    if (match.homeNoShow) home.noPresented += 1;
+    if (match.awayNoShow) away.noPresented += 1;
+
+    home.goalsFor += match.homeScore;
+    home.goalsAgainst += match.awayScore;
+    away.goalsFor += match.awayScore;
+    away.goalsAgainst += match.homeScore;
+
+    if (match.homeScore > match.awayScore) {
+      home.won += 1;
+      away.lost += 1;
+      home.points += competition.pointsWin;
+      away.points += competition.pointsLoss;
+    } else if (match.homeScore < match.awayScore) {
+      away.won += 1;
+      home.lost += 1;
+      away.points += competition.pointsWin;
+      home.points += competition.pointsLoss;
+    } else {
+      home.drawn += 1;
+      away.drawn += 1;
+      home.points += competition.pointsDraw;
+      away.points += competition.pointsDraw;
+    }
+  }
+
+  const rows = Array.from(table.values()).map((row) => ({
+    ...row,
+    position: 0,
+    goalDifference: row.goalsFor - row.goalsAgainst,
+  }));
+
+  return rankStandings(
+    rows,
+    matches.map((match) => ({
+      homeTeamCode: match.homeTeamCode,
+      awayTeamCode: match.awayTeamCode,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      status: match.status,
+    })),
+    {
+      win: competition.pointsWin,
+      draw: competition.pointsDraw,
+      loss: competition.pointsLoss,
+    }
+  ).map((row, index) => ({
+    ...row,
+    position: index + 1,
+  }));
+}
+
+function StandingsRoundSelector({
+  rounds,
+  value,
+  onChange,
+}: {
+  rounds: Round[];
+  value: string;
+  onChange: (roundId: string) => void;
+}) {
+  if (rounds.length === 0) return null;
+
+  const activeRound =
+    rounds.find((round) => round.id === value) ??
+    rounds[rounds.length - 1];
+
+  return (
+    <section className="v3111-round-selector">
+      <div>
+        <span>Clasificación histórica</span>
+        <strong>
+          {activeRound
+            ? `Clasificación tras ${activeRound.name}`
+            : "Clasificación actual"}
+        </strong>
+      </div>
+
+      <label>
+        <span>Jornada</span>
+        <select
+          value={activeRound?.id ?? ""}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {rounds.map((round) => (
+            <option value={round.id} key={round.id}>
+              {round.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
 }
 
 function buildSplitStandings(
