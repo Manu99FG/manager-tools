@@ -13,7 +13,7 @@ export const OFFICIAL_COMPETITION_TEMPLATES: OfficialCompetitionTemplate[] = [
   { key: "pretemporada-inaugural", name: "Pretemporada Inaugural", type: "GROUPS", homeAndAway: false, teamMode: "EMPTY", description: "4 grupos de 8 con calendario fijo. Los 4 primeros de cada grupo van a Primera y los 4 últimos a Segunda." },
   { key: "primera", name: "Primera División", type: "LEAGUE", homeAndAway: true, teamMode: "FIRST_16", description: "Liga principal de 16 equipos. Descienden los 3 últimos." },
   { key: "segunda", name: "Segunda División", type: "LEAGUE", homeAndAway: true, teamMode: "SECOND_16", description: "Liga de 16 equipos. Ascienden los 2 primeros y el playoff de ascenso queda integrado en esta misma competición: 3.º vs 6.º y 4.º vs 5.º." },
-  { key: "intercontinental", name: "Copa Intercontinental", type: "GROUPS", homeAndAway: false, teamMode: "ALL", description: "Solo fase de grupos: 4 grupos de 8. 1.º-2.º a Champions, 3.º-4.º a Conference, 5.º-6.º a Intertoto y 7.º-8.º eliminados." },
+  { key: "intercontinental", name: "Copa Intercontinental", type: "GROUPS", homeAndAway: false, teamMode: "EMPTY", description: "Solo fase de grupos: 4 grupos de 8. 1.º-2.º a Champions, 3.º-4.º a Conference, 5.º-6.º a Intertoto y 7.º-8.º eliminados." },
   { key: "champions", name: "Champions League", type: "CUP", homeAndAway: true, teamMode: "EMPTY", description: "Eliminatorias ida/vuelta; final a partido único." },
   { key: "conference", name: "Conference League", type: "CUP", homeAndAway: true, teamMode: "EMPTY", description: "Eliminatorias ida/vuelta; final a partido único." },
   { key: "intertoto", name: "Copa Intertoto", type: "CUP", homeAndAway: true, teamMode: "EMPTY", description: "Eliminatorias ida/vuelta; final a partido único." },

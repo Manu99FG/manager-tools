@@ -119,6 +119,27 @@ export async function POST(request: Request) {
       );
     }
 
+    const isIntercontinental = String(competition.name ?? "")
+      .trim()
+      .toLocaleLowerCase("es") === "copa intercontinental";
+
+    if (isIntercontinental) {
+      const { data: appliedDraw, error: drawError } = await supabase
+        .from("competition_draws")
+        .select("id,status")
+        .eq("destination_competition_id", competitionId)
+        .eq("status", "APPLIED")
+        .limit(1)
+        .maybeSingle();
+      if (drawError) throw drawError;
+      if (!appliedDraw) {
+        return NextResponse.json(
+          { error: "La Copa Intercontinental debe esperar a que termine y se aplique el sorteo antes de generar su calendario." },
+          { status: 409 }
+        );
+      }
+    }
+
     if ((matchesResult.count ?? 0) > 0 || (roundsResult.count ?? 0) > 0) {
       return NextResponse.json(
         { error: "Esta competición ya tiene un calendario generado." },

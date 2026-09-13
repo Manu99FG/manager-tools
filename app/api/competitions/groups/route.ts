@@ -51,6 +51,12 @@ export async function POST(request: Request) {
     if (!["GROUPS", "GROUPS_KNOCKOUT"].includes(String(competition.type))) {
       return NextResponse.json({ error: "Esta competición no utiliza fase de grupos." }, { status: 409 });
     }
+    if (String(competition.name ?? "").trim().toLocaleLowerCase("es") === "copa intercontinental") {
+      return NextResponse.json(
+        { error: "Los grupos de la Copa Intercontinental solo se crean mediante su sorteo oficial." },
+        { status: 409 }
+      );
+    }
     if ((matchCount ?? 0) > 0) {
       return NextResponse.json(
         { error: "No se pueden cambiar los grupos después de generar el calendario." },

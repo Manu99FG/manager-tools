@@ -52,7 +52,9 @@ export default function CompetitionGroupsAdmin({
 }: Props) {
   const router = useRouter();
 
-  const isClassCompetition = competitionName.toLocaleLowerCase("es").includes("leyendas");
+  const normalizedCompetitionName = competitionName.trim().toLocaleLowerCase("es");
+  const isClassCompetition = normalizedCompetitionName.includes("leyendas");
+  const isIntercontinental = normalizedCompetitionName === "copa intercontinental";
   const effectiveHomeAndAway = isClassCompetition ? true : homeAndAway;
   const unitLabel = isClassCompetition ? "clase" : "grupo";
   const unitLabelPlural = isClassCompetition ? "clases" : "grupos";
@@ -317,6 +319,23 @@ export default function CompetitionGroupsAdmin({
     }
   }
 
+  if (isIntercontinental && !teams.length) {
+    return (
+      <section className="manage-comp-card manage-groups-admin">
+        <div className="manage-comp-section-head">
+          <div>
+            <span>Copa Intercontinental</span>
+            <h2>Pendiente de sorteo</h2>
+          </div>
+        </div>
+        <div className="manage-groups-empty">
+          <strong>Los grupos todavía no existen.</strong>
+          <p>Programa y realiza el sorteo de la Copa Intercontinental desde Administración → Sorteos. Los 32 equipos y los cuatro grupos se asignarán automáticamente cuando el sorteo se aplique.</p>
+        </div>
+      </section>
+    );
+  }
+
   if (!teams.length) {
     return (
       <section className="manage-comp-card manage-groups-admin">
@@ -338,12 +357,14 @@ export default function CompetitionGroupsAdmin({
     <section className="manage-comp-card manage-groups-admin">
       <div className="manage-comp-section-head manage-groups-head">
         <div>
-          <span>{isClassCompetition ? "Copa de Leyendas" : "Fase de grupos"}</span>
-          <h2>{isClassCompetition ? "Asignar Clase a cada equipo" : "Crear y repartir grupos"}</h2>
+          <span>{isClassCompetition ? "Copa de Leyendas" : isIntercontinental ? "Copa Intercontinental" : "Fase de grupos"}</span>
+          <h2>{isClassCompetition ? "Asignar Clase a cada equipo" : isIntercontinental ? "Grupos definidos por sorteo" : "Crear y repartir grupos"}</h2>
           <p>
             {isClassCompetition
               ? "Las clases se toman automáticamente desde Administración → Clubes. Cada clase (A-H) es un grupo de 4 equipos y clasifican los 2 primeros."
-              : "Define cuántos grupos tendrá la competición y asigna cada equipo. Después podrás generar automáticamente las jornadas de cada grupo."}
+              : isIntercontinental
+                ? "La distribución es de solo lectura: los cuatro grupos proceden exclusivamente del sorteo oficial. Aquí solo puedes comprobar el resultado y generar el calendario una vez aplicado el sorteo."
+                : "Define cuántos grupos tendrá la competición y asigna cada equipo. Después podrás generar automáticamente las jornadas de cada grupo."}
           </p>
         </div>
       </div>
@@ -366,7 +387,7 @@ export default function CompetitionGroupsAdmin({
           <div className="manage-groups-counter">
             <button
               type="button"
-              disabled={hasMatches || isClassCompetition || groupCount <= 1}
+              disabled={hasMatches || isClassCompetition || isIntercontinental || groupCount <= 1}
               onClick={() => changeGroupCount(groupCount - 1)}
             >
               −
@@ -374,7 +395,7 @@ export default function CompetitionGroupsAdmin({
             <strong>{groupCount}</strong>
             <button
               type="button"
-              disabled={hasMatches || isClassCompetition || groupCount >= teams.length}
+              disabled={hasMatches || isClassCompetition || isIntercontinental || groupCount >= teams.length}
               onClick={() => changeGroupCount(groupCount + 1)}
             >
               +
@@ -386,18 +407,18 @@ export default function CompetitionGroupsAdmin({
           <button
             type="button"
             className="manage-groups-secondary"
-            disabled={hasMatches || isClassCompetition}
+            disabled={hasMatches || isClassCompetition || isIntercontinental}
             onClick={distributeAutomatically}
           >
-            {isClassCompetition ? "Clases desde Administración" : "Repartir automáticamente"}
+            {isClassCompetition ? "Clases desde Administración" : isIntercontinental ? "Distribución del sorteo" : "Repartir automáticamente"}
           </button>
           <button
             type="button"
             className="manage-groups-primary"
-            disabled={hasMatches || busy}
+            disabled={hasMatches || busy || isIntercontinental}
             onClick={saveGroups}
           >
-            {busy ? "Sincronizando..." : isClassCompetition ? "Sincronizar clases" : "Guardar grupos"}
+            {busy ? "Sincronizando..." : isClassCompetition ? "Sincronizar clases" : isIntercontinental ? "Grupos aplicados por sorteo" : "Guardar grupos"}
           </button>
         </div>
       </div>
@@ -419,7 +440,7 @@ export default function CompetitionGroupsAdmin({
             </div>
             <select
               value={assignments[team.team_code] ?? ""}
-              disabled={hasMatches || isClassCompetition}
+              disabled={hasMatches || isClassCompetition || isIntercontinental}
               onChange={(event) =>
                 setAssignments((current) => ({
                   ...current,

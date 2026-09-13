@@ -356,10 +356,12 @@ export async function POST(request: Request) {
         if (template.key === "copa-leyendas") {
           const participants = officialTeamCodesForTemplate(template.teamMode, teams);
           templateTeams = await resolveCopaLeyendasTeamsByClass(supabase, participants);
+        } else if (template.key === "intercontinental") {
+          // La Copa Intercontinental nace vacía. Sus 32 equipos y sus grupos
+          // se asignan exclusivamente cuando se ejecuta el sorteo oficial.
+          templateTeams = [];
         } else {
-          templateTeams = preseasonResolution && template.key === "intercontinental"
-            ? preseasonResolution.intercontinentalTeams
-            : officialTeamCodesForTemplate(template.teamMode, teams);
+          templateTeams = officialTeamCodesForTemplate(template.teamMode, teams);
         }
         created.push(await createCompetition(supabase, seasonId, template, templateTeams));
       }

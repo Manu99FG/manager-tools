@@ -965,6 +965,7 @@ export default function CompetitionDetailHub({
   const isKnockout = isKnockoutFormat(competition.type);
   const format = COMPETITION_FORMAT[competition.type];
   const isGroupCompetition = competition.type === "GROUPS" || competition.type === "GROUPS_KNOCKOUT";
+  const isIntercontinental = competition.name.trim().toLocaleLowerCase("es") === "copa intercontinental";
   const isSecondDivision = competition.name.toLocaleLowerCase("es").includes("segunda");
   const playoffRounds = isSecondDivision
     ? rounds.filter((round) => ["SEMIFINAL", "FINAL"].includes(String(round.stage ?? "").toUpperCase()) && round.name.toLocaleLowerCase("es").includes("ascenso"))
@@ -1232,7 +1233,13 @@ export default function CompetitionDetailHub({
                 ))}
               </div>
             </section>
-          ) : isGroupCompetition ? <section id="competition-groups" className="competition-format-empty">Los grupos aparecerán aquí cuando se asignen sus equipos.</section> : null}
+          ) : isGroupCompetition ? (
+            <section id="competition-groups" className="competition-format-empty">
+              {isIntercontinental
+                ? "Copa Intercontinental pendiente de sorteo. Los grupos aparecerán automáticamente cuando se realice el sorteo oficial."
+                : "Los grupos aparecerán aquí cuando se asignen sus equipos."}
+            </section>
+          ) : null}
 
           <div className={`v3113-main-grid ${isGroupCompetition ? "is-groups" : ""}`}>
             <section className="v3113-card v3113-results-card">

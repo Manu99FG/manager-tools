@@ -155,36 +155,78 @@ async function buildDrawResult(sourceCompetitionId: string): Promise<DrawResult>
     reveal,
   };
 }
-
-async function applyDrawResult(draw: DrawRow, result: DrawResult) {
+async function applyIntercontinentalDraw(draw: DrawRow, result: DrawResult) {
   const supabase = getSupabaseAdmin();
-  const [{ data: destination, error: destinationError }, { count: matchCount, error: matchesError }] = await Promise.all([
-    supabase.from("competitions").select("id,season_id,name").eq("id", draw.destination_competition_id).maybeSingle(),
-    supabase.from("matches").select("id", { count: "exact", head: true }).eq("competition_id", draw.destination_competition_id),
-  ]);
+
+  const { data: destination, error: destinationError } = await supabase
+    .from("competitions")
+    .select("id,name,type,status")
+    .eq("id", draw.destination_competition_id)
+    .maybeSingle();
   if (destinationError) throw destinationError;
-  if (matchesError) throw matchesError;
-  if (!destination) throw new Error("No se encontró la Copa Intercontinental destino.");
-  if ((matchCount ?? 0) > 0) throw new Error("La Copa Intercontinental ya tiene calendario o partidos y no puede recibir un nuevo sorteo.");
+  if (!destination) throw new Error("No se encontró la Copa Intercontinental de destino.");
 
-  const rows = GROUPS.flatMap((groupName) =>
-    (result.groups[groupName] ?? []).map((teamCode, index) => ({
-      competition_id: draw.destination_competition_id,
-      team_code: teamCode,
-      group_name: groupName,
-      seed: GROUPS.indexOf(groupName) * 8 + index + 1,
-    }))
-  );
-  if (rows.length !== 32) throw new Error("El sorteo no contiene los 32 equipos necesarios para la Copa Intercontinental.");
+  const isIntercontinental = String(destination.name ?? "")
+    .toLocaleLowerCase("es")
+    .includes("intercontinental");
+  if (!isIntercontinental) {
+    throw new Error("Este sorteo solo puede aplicar grupos a la Copa Intercontinental.");
+  }
 
-  const { error: clearError } = await supabase.from("competition_teams").delete().eq("competition_id", draw.destination_competition_id);
-  if (clearError) throw clearError;
-  const { error: insertError } = await supabase.from("competition_teams").insert(rows);
+  const { count: matchCount, error: matchCountError } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("competition_id", draw.destination_competition_id);
+  if (matchCountError) throw matchCountError;
+  if ((matchCount ?? 0) > 0) {
+    throw new Error("La Copa Intercontinental ya tiene calendario. No se puede reemplazar el sorteo.");
+  }
+
+  const assignments = result.reveal.map((item, index) => ({
+    competition_id: draw.destination_competition_id,
+    team_code: item.teamCode,
+    seed: index + 1,
+    group_name: item.groupName,
+  }));
+
+  if (assignments.length !== 32) {
+    throw new Error(`El sorteo debe producir 32 asignaciones; se obtuvieron ${assignments.length}.`);
+  }
+
+  // Idempotente: limpia cualquier asignación antigua creada por versiones previas
+  // y aplica exclusivamente el resultado del sorteo.
+  const { error: deleteError } = await supabase
+    .from("competition_teams")
+    .delete()
+    .eq("competition_id", draw.destination_competition_id);
+  if (deleteError) throw deleteError;
+
+  const { error: insertError } = await supabase
+    .from("competition_teams")
+    .insert(assignments);
   if (insertError) throw insertError;
 }
 
 async function maybeGenerate(draw: DrawRow) {
-  if (draw.result || new Date(draw.scheduled_at).getTime() > Date.now()) return draw;
+  if (new Date(draw.scheduled_at).getTime() > Date.now()) return draw;
+
+  // Si el resultado ya fue generado pero faltó aplicarlo (por ejemplo tras un
+  // fallo temporal), se reintenta de forma segura.
+  if (draw.result) {
+    if (draw.status === "GENERATED") {
+      await applyIntercontinentalDraw(draw, draw.result);
+      const supabase = getSupabaseAdmin();
+      const { data: applied, error: appliedError } = await supabase
+        .from("competition_draws")
+        .update({ status: "APPLIED" })
+        .eq("id", draw.id)
+        .select("*")
+        .single();
+      if (appliedError) throw appliedError;
+      return applied as DrawRow;
+    }
+    return draw;
+  }
   const supabase = getSupabaseAdmin();
   const { data: locked, error: lockError } = await supabase
     .from("competition_draws")
@@ -201,17 +243,33 @@ async function maybeGenerate(draw: DrawRow) {
   }
   try {
     const result = await buildDrawResult(draw.source_competition_id);
-    await applyDrawResult(draw, result);
-    const { data: updated, error: updateError } = await supabase
+    const { data: generated, error: updateError } = await supabase
       .from("competition_draws")
-      .update({ status: "APPLIED", result, generated_at: result.generatedAt })
+      .update({ status: "GENERATED", result, generated_at: result.generatedAt })
       .eq("id", draw.id)
       .select("*")
       .single();
     if (updateError) throw updateError;
-    return updated as DrawRow;
+
+    const generatedDraw = generated as DrawRow;
+    await applyIntercontinentalDraw(generatedDraw, result);
+
+    const { data: applied, error: appliedError } = await supabase
+      .from("competition_draws")
+      .update({ status: "APPLIED" })
+      .eq("id", draw.id)
+      .select("*")
+      .single();
+    if (appliedError) throw appliedError;
+    return applied as DrawRow;
   } catch (error) {
-    await supabase.from("competition_draws").update({ status: "SCHEDULED" }).eq("id", draw.id);
+    // Solo libera el bloqueo de generación. Si el resultado ya quedó en
+    // GENERATED, el siguiente GET reintentará únicamente su aplicación.
+    await supabase
+      .from("competition_draws")
+      .update({ status: "SCHEDULED" })
+      .eq("id", draw.id)
+      .eq("status", "GENERATING");
     throw error;
   }
 }
