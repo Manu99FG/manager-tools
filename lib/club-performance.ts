@@ -95,6 +95,63 @@ function didParticipate(row: AnyRow) {
   return n(row.participated) > 0 || n(row.minutes) > 0;
 }
 
+
+async function loadPlayedMatchesForCompetitions(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  competitionIds: string[],
+  teamCode?: string
+) {
+  const rows: AnyRow[] = [];
+  const pageSize = 1000;
+
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabase
+      .from("matches")
+      .select("id,competition_id,status,home_team_code,away_team_code")
+      .in("competition_id", competitionIds)
+      .eq("status", "PLAYED")
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (teamCode) {
+      query = query.or(
+        `home_team_code.eq.${teamCode},away_team_code.eq.${teamCode}`
+      );
+    }
+
+    const result = await query;
+    if (result.error) throw result.error;
+
+    const page = (result.data ?? []) as AnyRow[];
+    rows.push(...page);
+
+    if (page.length < pageSize) break;
+  }
+
+  return rows;
+}
+
+async function loadPlayerStatsForMatches(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  matchIds: string[]
+) {
+  const stats: AnyRow[] = [];
+
+  for (let index = 0; index < matchIds.length; index += 100) {
+    const result = await supabase
+      .from("match_player_stats")
+      .select(
+        "match_id,player_id,team_code,esms_name,participated,minutes,saves,conceded,tackles,key_passes,shots,goals,assists,dp,position_at_match"
+      )
+      .in("match_id", matchIds.slice(index, index + 100));
+
+    if (result.error) throw result.error;
+    stats.push(...(result.data ?? []));
+  }
+
+  return stats;
+}
+
 export async function getClubPerformance(
   teamCodeInput: string,
   requestedSeasonId?: string | null
@@ -136,33 +193,32 @@ export async function getClubPerformance(
 
   if (!competitionIds.length) return { season, seasons, rows: [] };
 
-  const matchesRes = await supabase
-    .from("matches")
-    .select("id,competition_id,status")
-    .in("competition_id", competitionIds)
-    .eq("status", "PLAYED");
-
-  if (matchesRes.error) throw matchesRes.error;
-
-  const matchIds = ((matchesRes.data ?? []) as AnyRow[]).map((row) =>
-    String(row.id)
+  // Cargamos todos los partidos PLAYED de la temporada con paginación.
+  // Esto evita perder encuentros si Supabase alcanza su límite de filas.
+  const seasonPlayedMatches = await loadPlayedMatchesForCompetitions(
+    supabase,
+    competitionIds
   );
+
+  const matchIds = seasonPlayedMatches.map((row) => String(row.id));
 
   if (!matchIds.length) return { season, seasons, rows: [] };
 
-  const stats: AnyRow[] = [];
+  const stats = await loadPlayerStatsForMatches(supabase, matchIds);
 
-  for (let index = 0; index < matchIds.length; index += 100) {
-    const result = await supabase
-      .from("match_player_stats")
-      .select(
-        "match_id,player_id,team_code,esms_name,participated,minutes,saves,conceded,tackles,key_passes,shots,goals,assists,dp,position_at_match"
-      )
-      .in("match_id", matchIds.slice(index, index + 100));
-
-    if (result.error) throw result.error;
-    stats.push(...(result.data ?? []));
-  }
+  // Para la tabla del club usamos una segunda consulta específica:
+  // exactamente los partidos PLAYED donde el club fue local o visitante.
+  // Así el contador PJ coincide con Partidos/Historial del club.
+  const clubPlayedMatches = await loadPlayedMatchesForCompetitions(
+    supabase,
+    competitionIds,
+    teamCode
+  );
+  const clubPlayedMatchIds = clubPlayedMatches.map((row) => String(row.id));
+  const clubStatsRaw = await loadPlayerStatsForMatches(
+    supabase,
+    clubPlayedMatchIds
+  );
 
   /*
    * Cargamos los jugadores CANÓNICOS de la base.
@@ -414,8 +470,12 @@ export async function getClubPerformance(
   const totals = new Map<string, PlayerTotals>();
   const clubAppearanceKeys = new Set<string>();
 
-  for (const stat of stats) {
+  for (const stat of clubStatsRaw) {
     if (!didParticipate(stat)) continue;
+
+    // El registro individual debe pertenecer al club.
+    // Esto evita mezclar rivales de esos mismos encuentros.
+    if (String(stat.team_code ?? "").toUpperCase() !== teamCode) continue;
 
     const player = resolveCanonicalPlayer(stat);
     if (!player) continue;
