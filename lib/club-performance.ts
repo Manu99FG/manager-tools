@@ -8,7 +8,9 @@ import { getPlayerProfile } from "@/lib/esms-player";
 
 type AnyRow = Record<string, any>;
 
-type PlayerTotals = {
+type PlayerSeasonAccumulator = {
+  playerId: string;
+  position: EsmsHistoryPosition;
   appearances: number;
   minutes: number;
   goals: number;
@@ -19,14 +21,7 @@ type PlayerTotals = {
   saves: number;
   conceded: number;
   discipline: number;
-};
-
-type Acc = {
-  playerId: string;
-  position: EsmsHistoryPosition;
   rawScore: number;
-  minutes: number;
-  appearances: number;
 };
 
 export type ClubPerformanceRow = {
@@ -358,16 +353,17 @@ export async function getClubPerformance(
   /*
    * Rendimiento GLOBAL de la temporada.
    *
-   * REGLA ACTUAL:
-   * - Solo existe UNA posición para el cálculo: la posición principal.
-   * - position_at_match se ignora por completo.
-   * - Todos los partidos y todas las estadísticas se suman.
-   * - Cada partido se valora con la fórmula de la posición principal.
-   * - La normalización compara al jugador con futbolistas de esa misma
-   *   posición principal.
+   * UNA SOLA FUENTE DE VERDAD POR JUGADOR:
+   * - posición principal
+   * - PJ
+   * - minutos
+   * - estadísticas
+   * - Performance Score
+   *
+   * Todo se calcula a partir del mismo conjunto de partidos disputados.
    */
-  const accumulators = new Map<string, Acc>();
-  const appearanceKeys = new Set<string>();
+  const seasonAccumulators = new Map<string, PlayerSeasonAccumulator>();
+  const seasonAppearanceKeys = new Set<string>();
 
   for (const stat of stats) {
     if (!didParticipate(stat)) continue;
@@ -380,13 +376,37 @@ export async function getClubPerformance(
     if (!principalPosition) continue;
 
     const accumulator =
-      accumulators.get(playerId) ?? {
+      seasonAccumulators.get(playerId) ?? {
         playerId,
         position: principalPosition,
-        rawScore: 0,
-        minutes: 0,
         appearances: 0,
+        minutes: 0,
+        goals: 0,
+        assists: 0,
+        keyPasses: 0,
+        tackles: 0,
+        shots: 0,
+        saves: 0,
+        conceded: 0,
+        discipline: 0,
+        rawScore: 0,
       };
+
+    const appearanceKey = `${playerId}::${String(stat.match_id)}`;
+    if (!seasonAppearanceKeys.has(appearanceKey)) {
+      accumulator.appearances += 1;
+      seasonAppearanceKeys.add(appearanceKey);
+    }
+
+    accumulator.minutes += n(stat.minutes);
+    accumulator.goals += n(stat.goals);
+    accumulator.assists += n(stat.assists);
+    accumulator.keyPasses += n(stat.key_passes);
+    accumulator.tackles += n(stat.tackles);
+    accumulator.shots += n(stat.shots);
+    accumulator.saves += n(stat.saves);
+    accumulator.conceded += n(stat.conceded);
+    accumulator.discipline += n(stat.dp);
 
     accumulator.rawScore += getPositionPerformanceScore({
       position: principalPosition,
@@ -401,18 +421,10 @@ export async function getClubPerformance(
       shots: n(stat.shots),
     });
 
-    accumulator.minutes += n(stat.minutes);
-
-    const appearanceKey = `${playerId}::${String(stat.match_id)}`;
-    if (!appearanceKeys.has(appearanceKey)) {
-      accumulator.appearances += 1;
-      appearanceKeys.add(appearanceKey);
-    }
-
-    accumulators.set(playerId, accumulator);
+    seasonAccumulators.set(playerId, accumulator);
   }
 
-  const principalRows: Acc[] = [...accumulators.values()];
+  const principalRows = [...seasonAccumulators.values()];
 
   const normalized = normalizeScoresByPositionAndSeason(
     principalRows.map((row) => ({
@@ -428,20 +440,17 @@ export async function getClubPerformance(
   );
 
   /*
-   * Datos de la tabla del CLUB.
+   * Datos del CLUB.
    *
-   * Solo jugadores que pertenecen actualmente al club.
-   * Se suman TODAS sus apariciones reales de la temporada, incluso si una
-   * importación antigua utilizó otro player_id para el mismo esms_name.
+   * Para evitar cualquier incoherencia entre tabla y detalle, aquí volvemos a
+   * acumular exclusivamente los partidos del club y usamos ESE MISMO acumulado
+   * para PJ, minutos, estadísticas, Score y "Rendimiento por posición".
    */
-  const totals = new Map<string, PlayerTotals>();
+  const clubAccumulators = new Map<string, PlayerSeasonAccumulator>();
   const clubAppearanceKeys = new Set<string>();
 
   for (const stat of clubStatsRaw) {
     if (!didParticipate(stat)) continue;
-
-    // El registro individual debe pertenecer al club.
-    // Esto evita mezclar rivales de esos mismos encuentros.
     if (String(stat.team_code ?? "").toUpperCase() !== teamCode) continue;
 
     const player = resolveCanonicalPlayer(stat);
@@ -450,8 +459,13 @@ export async function getClubPerformance(
     const playerId = String(player.id);
     if (!currentRosterIds.has(playerId)) continue;
 
-    const total =
-      totals.get(playerId) ?? {
+    const principalPosition = getPrincipalPosition(playerId);
+    if (!principalPosition) continue;
+
+    const accumulator =
+      clubAccumulators.get(playerId) ?? {
+        playerId,
+        position: principalPosition,
         appearances: 0,
         minutes: 0,
         goals: 0,
@@ -462,30 +476,44 @@ export async function getClubPerformance(
         saves: 0,
         conceded: 0,
         discipline: 0,
+        rawScore: 0,
       };
 
     const appearanceKey = `${playerId}::${String(stat.match_id)}`;
     if (!clubAppearanceKeys.has(appearanceKey)) {
-      total.appearances += 1;
+      accumulator.appearances += 1;
       clubAppearanceKeys.add(appearanceKey);
     }
 
-    total.minutes += n(stat.minutes);
-    total.goals += n(stat.goals);
-    total.assists += n(stat.assists);
-    total.keyPasses += n(stat.key_passes);
-    total.tackles += n(stat.tackles);
-    total.shots += n(stat.shots);
-    total.saves += n(stat.saves);
-    total.conceded += n(stat.conceded);
-    total.discipline += n(stat.dp);
+    accumulator.minutes += n(stat.minutes);
+    accumulator.goals += n(stat.goals);
+    accumulator.assists += n(stat.assists);
+    accumulator.keyPasses += n(stat.key_passes);
+    accumulator.tackles += n(stat.tackles);
+    accumulator.shots += n(stat.shots);
+    accumulator.saves += n(stat.saves);
+    accumulator.conceded += n(stat.conceded);
+    accumulator.discipline += n(stat.dp);
 
-    totals.set(playerId, total);
+    accumulator.rawScore += getPositionPerformanceScore({
+      position: principalPosition,
+      saves: n(stat.saves),
+      conceded: n(stat.conceded),
+      minutes: n(stat.minutes),
+      discipline: n(stat.dp),
+      tackles: n(stat.tackles),
+      keyPasses: n(stat.key_passes),
+      assists: n(stat.assists),
+      goals: n(stat.goals),
+      shots: n(stat.shots),
+    });
+
+    clubAccumulators.set(playerId, accumulator);
   }
 
   const rows: ClubPerformanceRow[] = [];
 
-  for (const [playerId, total] of totals.entries()) {
+  for (const [playerId, total] of clubAccumulators.entries()) {
     const normalizedRow = normalizedByPlayer.get(playerId);
     if (!normalizedRow) continue;
 
@@ -496,18 +524,14 @@ export async function getClubPerformance(
 
     const naturalPosition = getPrincipalPosition(playerId);
 
-    const principalAccumulator = accumulators.get(playerId);
-    const byPosition = principalAccumulator
-      ? [
-          {
-            position: principalAccumulator.position,
-            appearances: principalAccumulator.appearances,
-            minutes: principalAccumulator.minutes,
-            rawScore:
-              Math.round(principalAccumulator.rawScore * 10) / 10,
-          },
-        ]
-      : [];
+    const byPosition = [
+      {
+        position: total.position,
+        appearances: total.appearances,
+        minutes: total.minutes,
+        rawScore: Math.round(total.rawScore * 10) / 10,
+      },
+    ];
 
     rows.push({
       playerId,
@@ -520,7 +544,7 @@ export async function getClubPerformance(
         ? String(player.nationality)
         : null,
       naturalPosition,
-      dominantPosition: naturalPosition ?? normalizedRow.position,
+      dominantPosition: total.position,
       appearances: total.appearances,
       minutes: total.minutes,
       goals: total.goals,
@@ -531,7 +555,7 @@ export async function getClubPerformance(
       saves: total.saves,
       conceded: total.conceded,
       discipline: total.discipline,
-      rawScore: Math.round(normalizedRow.rawScore * 10) / 10,
+      rawScore: Math.round(total.rawScore * 10) / 10,
       zScore: normalizedRow.zScore,
       percentile: normalizedRow.percentile,
       normalizedIndex: normalizedRow.normalizedIndex,
