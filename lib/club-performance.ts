@@ -317,16 +317,23 @@ export async function getClubPerformance(
   );
 
   /*
-   * Snapshot actual para calcular posición natural.
+   * Snapshot actual para calcular la POSICIÓN PRINCIPAL.
+   *
+   * El .stt no aporta una posición de partido fiable, por lo que NO usamos
+   * position_at_match para decidir cómo valorar al jugador.
+   *
+   * La posición principal se obtiene a partir de ST/TK/PS/SH mediante
+   * getPlayerProfile(), y esa misma posición se usa para TODOS los partidos
+   * de la temporada.
    */
-  const currentPlayerIds = [...currentRosterIds];
+  const allCanonicalPlayerIds = [...playersById.keys()];
   const snapshotRows: AnyRow[] = [];
 
-  for (let index = 0; index < currentPlayerIds.length; index += 100) {
+  for (let index = 0; index < allCanonicalPlayerIds.length; index += 100) {
     const result = await supabase
       .from("latest_player_snapshots")
       .select("player_id,st,tk,ps,sh")
-      .in("player_id", currentPlayerIds.slice(index, index + 100));
+      .in("player_id", allCanonicalPlayerIds.slice(index, index + 100));
 
     if (result.error) throw result.error;
     snapshotRows.push(...(result.data ?? []));
@@ -336,15 +343,30 @@ export async function getClubPerformance(
     snapshotRows.map((row) => [String(row.player_id), row] as const)
   );
 
+  function getPrincipalPosition(playerId: string): EsmsHistoryPosition | null {
+    const snapshot = snapshots.get(playerId);
+    if (!snapshot) return null;
+
+    return getPlayerProfile({
+      st: n(snapshot.st),
+      tk: n(snapshot.tk),
+      ps: n(snapshot.ps),
+      sh: n(snapshot.sh),
+    } as any) as EsmsHistoryPosition;
+  }
+
   /*
-   * Rendimiento GLOBAL de la temporada para hacer una normalización justa
-   * por posición. Solo cuentan partidos donde el jugador participó realmente.
+   * Rendimiento GLOBAL de la temporada.
+   *
+   * REGLA ACTUAL:
+   * - Solo existe UNA posición para el cálculo: la posición principal.
+   * - position_at_match se ignora por completo.
+   * - Todos los partidos y todas las estadísticas se suman.
+   * - Cada partido se valora con la fórmula de la posición principal.
+   * - La normalización compara al jugador con futbolistas de esa misma
+   *   posición principal.
    */
   const accumulators = new Map<string, Acc>();
-  const minutesByPlayer = new Map<
-    string,
-    Map<EsmsHistoryPosition, number>
-  >();
   const appearanceKeys = new Set<string>();
 
   for (const stat of stats) {
@@ -354,31 +376,20 @@ export async function getClubPerformance(
     if (!player) continue;
 
     const playerId = String(player.id);
-    const position = pos(stat.position_at_match);
-    if (!position) continue;
+    const principalPosition = getPrincipalPosition(playerId);
+    if (!principalPosition) continue;
 
-    const minuteMap =
-      minutesByPlayer.get(playerId) ??
-      new Map<EsmsHistoryPosition, number>();
-
-    minuteMap.set(
-      position,
-      (minuteMap.get(position) ?? 0) + n(stat.minutes)
-    );
-    minutesByPlayer.set(playerId, minuteMap);
-
-    const key = `${playerId}::${position}`;
     const accumulator =
-      accumulators.get(key) ?? {
+      accumulators.get(playerId) ?? {
         playerId,
-        position,
+        position: principalPosition,
         rawScore: 0,
         minutes: 0,
         appearances: 0,
       };
 
     accumulator.rawScore += getPositionPerformanceScore({
-      position,
+      position: principalPosition,
       saves: n(stat.saves),
       conceded: n(stat.conceded),
       minutes: n(stat.minutes),
@@ -392,63 +403,19 @@ export async function getClubPerformance(
 
     accumulator.minutes += n(stat.minutes);
 
-    const appearanceKey = `${playerId}::${String(stat.match_id)}::${position}`;
+    const appearanceKey = `${playerId}::${String(stat.match_id)}`;
     if (!appearanceKeys.has(appearanceKey)) {
       accumulator.appearances += 1;
       appearanceKeys.add(appearanceKey);
     }
 
-    accumulators.set(key, accumulator);
+    accumulators.set(playerId, accumulator);
   }
 
-  /*
-   * Posición dominante = posición con más minutos.
-   *
-   * IMPORTANTE: no se pierde rendimiento.
-   * El rawScore final suma lo producido en TODAS las posiciones y se atribuye
-   * a la posición dominante para compararlo con jugadores de esa posición.
-   */
-  const dominantRows: Acc[] = [];
-
-  for (const [playerId, minuteMap] of minutesByPlayer.entries()) {
-    const ordered = [...minuteMap.entries()].sort(
-      (a, b) =>
-        b[1] - a[1] ||
-        POSITIONS.indexOf(a[0]) - POSITIONS.indexOf(b[0])
-    );
-
-    const dominantPosition = ordered[0]?.[0];
-    if (!dominantPosition) continue;
-
-    const allPositions = POSITIONS.map((position) =>
-      accumulators.get(`${playerId}::${position}`)
-    ).filter((value): value is Acc => Boolean(value));
-
-    dominantRows.push({
-      playerId,
-      position: dominantPosition,
-      rawScore: allPositions.reduce(
-        (sum, value) => sum + value.rawScore,
-        0
-      ),
-      minutes: allPositions.reduce(
-        (sum, value) => sum + value.minutes,
-        0
-      ),
-      appearances: new Set(
-        stats
-          .filter((stat) => {
-            if (!didParticipate(stat)) return false;
-            const player = resolveCanonicalPlayer(stat);
-            return player && String(player.id) === playerId;
-          })
-          .map((stat) => String(stat.match_id))
-      ).size,
-    });
-  }
+  const principalRows: Acc[] = [...accumulators.values()];
 
   const normalized = normalizeScoresByPositionAndSeason(
-    dominantRows.map((row) => ({
+    principalRows.map((row) => ({
       playerId: row.playerId,
       seasonId: season.id,
       position: row.position,
@@ -527,26 +494,20 @@ export async function getClubPerformance(
 
     const snapshot = snapshots.get(playerId);
 
-    let naturalPosition: EsmsHistoryPosition | null = null;
-    if (snapshot) {
-      naturalPosition = getPlayerProfile({
-        st: n(snapshot.st),
-        tk: n(snapshot.tk),
-        ps: n(snapshot.ps),
-        sh: n(snapshot.sh),
-      } as any) as EsmsHistoryPosition;
-    }
+    const naturalPosition = getPrincipalPosition(playerId);
 
-    const byPosition = POSITIONS.map((position) =>
-      accumulators.get(`${playerId}::${position}`)
-    )
-      .filter((value): value is Acc => Boolean(value))
-      .map((value) => ({
-        position: value.position,
-        appearances: value.appearances,
-        minutes: value.minutes,
-        rawScore: Math.round(value.rawScore * 10) / 10,
-      }));
+    const principalAccumulator = accumulators.get(playerId);
+    const byPosition = principalAccumulator
+      ? [
+          {
+            position: principalAccumulator.position,
+            appearances: principalAccumulator.appearances,
+            minutes: principalAccumulator.minutes,
+            rawScore:
+              Math.round(principalAccumulator.rawScore * 10) / 10,
+          },
+        ]
+      : [];
 
     rows.push({
       playerId,
@@ -559,7 +520,7 @@ export async function getClubPerformance(
         ? String(player.nationality)
         : null,
       naturalPosition,
-      dominantPosition: normalizedRow.position,
+      dominantPosition: naturalPosition ?? normalizedRow.position,
       appearances: total.appearances,
       minutes: total.minutes,
       goals: total.goals,
