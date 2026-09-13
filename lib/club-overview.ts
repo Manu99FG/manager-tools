@@ -69,7 +69,7 @@ function n(value: unknown) {
 }
 
 function matchDate(row: AnyRow) {
-  return row.played_at ?? row.scheduled_at ?? row.created_at ?? null;
+  return row.scheduled_at ?? row.played_at ?? row.created_at ?? null;
 }
 
 function normalizePosition(value: unknown): EsmsHistoryPosition | null {

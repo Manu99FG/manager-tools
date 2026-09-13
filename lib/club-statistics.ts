@@ -155,7 +155,7 @@ export async function getClubStatistics(teamCodeInput: string, requestedSeasonId
       const competitionId = String(row.competition_id);
       const competitionName = competitions.find((item) => item.id === competitionId)?.name ?? "Competición";
       const opponentCode = home ? String(row.away_team_code) : String(row.home_team_code);
-      return { id: String(row.id), competitionId, competitionName, home, opponentCode, gf, ga, date: String(row.played_at ?? row.scheduled_at ?? row.created_at ?? "") };
+      return { id: String(row.id), competitionId, competitionName, home, opponentCode, gf, ga, date: String(row.scheduled_at ?? row.played_at ?? row.created_at ?? "") };
     });
 
   const team = playedMatches.reduce((acc, match) => {
