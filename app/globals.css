@@ -4420,7 +4420,7 @@ img {
 .v3111-club strong{color:var(--mt-text)!important;font-size:8px}
 .v3111-zone-line{position:absolute;left:-1px;top:8px;bottom:8px;width:3px;border-radius:4px}
 .v3111-table-row>strong{color:var(--mt-text)!important;text-align:center;font-size:8px;font-weight:900}
-.v31118-points-value,.v31118-np-value{color:var(--mt-text)!important;text-align:center;font-size:8px!important;font-weight:900!important}
+.v31118-points-value,.v31118-np-value{color:var(--mt-text)!important;text-align:center;font-size:inherit!important;font-weight:900!important}
 .v3111-table-row .v311-form{display:flex;min-width:0;justify-content:center;gap:3px;overflow:hidden}
 .v3111-table-row .v311-form i{width:18px;height:18px;flex:0 0 18px;font-size:6px}
 
