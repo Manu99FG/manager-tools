@@ -38,7 +38,7 @@ export type HomeTransfer = {
   fromTeamCode: string | null;
   toTeamCode: string | null;
   movementType: string;
-  transferDate: string;
+  transferDate: string | null;
   fee: number | null;
   photoUrl: string | null;
 };
@@ -339,7 +339,10 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
       movements: market.totals.movements,
     },
     latestTransfers: market.latestMovements
-      .filter((movement) => movement.movementType !== "PENDING")
+      .filter(
+        (movement): movement is typeof movement & { playerId: string } =>
+          movement.movementType !== "PENDING" && movement.playerId !== null
+      )
       .slice(0, 5)
       .map((movement) => {
         const player = playerById.get(movement.playerId);
