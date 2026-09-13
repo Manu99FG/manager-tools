@@ -3,6 +3,19 @@ import { getPositionPerformanceScore, normalizeScoresByPositionAndSeason, type E
 import { getPlayerProfile } from "@/lib/esms-player";
 
 type AnyRow = Record<string, any>;
+
+type PlayerTotals = {
+  appearances: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  keyPasses: number;
+  tackles: number;
+  shots: number;
+  saves: number;
+  conceded: number;
+  discipline: number;
+};
 export type ClubPerformanceRow = {
   playerId: string; esmsName: string; displayName: string; photoUrl: string | null; nationality: string | null;
   naturalPosition: EsmsHistoryPosition | null; dominantPosition: EsmsHistoryPosition; appearances: number; minutes: number;
