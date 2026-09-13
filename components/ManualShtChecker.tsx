@@ -243,7 +243,7 @@ export default function ManualShtChecker({
             </h2>
 
             <p className="mt-1 text-xs leading-5 text-[var(--mt-muted)]">
-              Importa el archivo escrito a mano o pega su contenido. La validación reproduce el código del checker original que has facilitado.
+              Importa tu archivo ABREVIATURAsht.txt o pega su contenido. La validación reproduce el código del checker original que has facilitado.
             </p>
           </div>
 

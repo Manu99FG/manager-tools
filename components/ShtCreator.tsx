@@ -2501,7 +2501,7 @@ export default function ShtCreator({
                 hover:text-[var(--mt-gold-dark)]
               "
             >
-              Cargar .sht
+              Cargar ABREVIATURAsht.txt
             </button>
 
             <button
@@ -3487,7 +3487,6 @@ function TabButton({
     </button>
   );
 }
-
 
 
 
