@@ -46,8 +46,52 @@ export async function getClubPerformance(teamCodeInput:string, requestedSeasonId
  const meta=new Map(((playersRes.data??[]) as AnyRow[]).map(r=>[String(r.id),r])); const snaps=new Map(((snapsRes.data??[]) as AnyRow[]).map(r=>[String(r.player_id),r]));
  type Acc={playerId:string;position:EsmsHistoryPosition;rawScore:number;minutes:number;appearances:number}; const acc=new Map<string,Acc>(); const mins=new Map<string,Map<EsmsHistoryPosition,number>>();
  for(const r of stats){if(!r.player_id)continue;const p=pos(r.position_at_match);if(!p)continue;const id=String(r.player_id);const pm=mins.get(id)??new Map();pm.set(p,(pm.get(p)??0)+n(r.minutes));mins.set(id,pm);const k=`${id}::${p}`;const a=acc.get(k)??{playerId:id,position:p,rawScore:0,minutes:0,appearances:0};a.rawScore+=getPositionPerformanceScore({position:p,saves:n(r.saves),conceded:n(r.conceded),minutes:n(r.minutes),discipline:n(r.dp),tackles:n(r.tackles),keyPasses:n(r.key_passes),assists:n(r.assists),goals:n(r.goals),shots:n(r.shots)});a.minutes+=n(r.minutes);a.appearances+=n(r.participated)>0||n(r.minutes)>0?1:0;acc.set(k,a)}
- const dominant:Acc[]=[];for(const [id,m] of mins){const ordered=[...m].sort((a,b)=>b[1]-a[1]||POSITIONS.indexOf(a[0])-POSITIONS.indexOf(b[0]));const p=ordered[0]?.[0];if(p){const a=acc.get(`${id}::${p}`);if(a)dominant.push(a)}}
- const normalized=normalizeScoresByPositionAndSeason(dominant.map(a=>({playerId:a.playerId,seasonId:season.id,position:a.position,rawScore:a.rawScore})));
+ const dominant:Acc[]=[];
+ for(const [id,m] of mins){
+  const ordered=[...m].sort(
+    (a,b)=>b[1]-a[1]||POSITIONS.indexOf(a[0])-POSITIONS.indexOf(b[0])
+  );
+  const dominantPosition=ordered[0]?.[0];
+  if(!dominantPosition)continue;
+
+  // IMPORTANTE:
+  // La posición dominante se decide únicamente por los minutos jugados.
+  // Sin embargo, el rendimiento NO se pierde si el jugador actuó en otras
+  // posiciones: sumamos el Performance Score obtenido en TODAS ellas y
+  // atribuimos el total a su posición dominante para la normalización.
+  const allPositionAccumulators=POSITIONS
+    .map(position=>acc.get(`${id}::${position}`))
+    .filter((value):value is Acc=>Boolean(value));
+
+  const totalRawScore=allPositionAccumulators.reduce(
+    (sum,value)=>sum+value.rawScore,
+    0
+  );
+  const totalMinutes=allPositionAccumulators.reduce(
+    (sum,value)=>sum+value.minutes,
+    0
+  );
+  const totalAppearances=allPositionAccumulators.reduce(
+    (sum,value)=>sum+value.appearances,
+    0
+  );
+
+  dominant.push({
+    playerId:id,
+    position:dominantPosition,
+    rawScore:totalRawScore,
+    minutes:totalMinutes,
+    appearances:totalAppearances,
+  });
+ }
+ const normalized=normalizeScoresByPositionAndSeason(
+  dominant.map(a=>({
+    playerId:a.playerId,
+    seasonId:season.id,
+    position:a.position,
+    rawScore:a.rawScore
+  }))
+ );
  const norm=new Map(normalized.map(r=>[r.playerId,r]));
  const clubStats=stats.filter(r=>String(r.team_code).toUpperCase()===teamCode); const totals=new Map<string,PlayerTotals>();
  for(const r of clubStats){if(!r.player_id)continue;const id=String(r.player_id),t:PlayerTotals=totals.get(id)??{appearances:0,minutes:0,goals:0,assists:0,keyPasses:0,tackles:0,shots:0,saves:0,conceded:0,discipline:0};t.appearances+=n(r.participated)>0||n(r.minutes)>0?1:0;t.minutes+=n(r.minutes);t.goals+=n(r.goals);t.assists+=n(r.assists);t.keyPasses+=n(r.key_passes);t.tackles+=n(r.tackles);t.shots+=n(r.shots);t.saves+=n(r.saves);t.conceded+=n(r.conceded);t.discipline+=n(r.dp);totals.set(id,t)}
