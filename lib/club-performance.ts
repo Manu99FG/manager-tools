@@ -49,8 +49,31 @@ export async function getClubPerformance(teamCodeInput:string, requestedSeasonId
  const dominant:Acc[]=[];for(const [id,m] of mins){const ordered=[...m].sort((a,b)=>b[1]-a[1]||POSITIONS.indexOf(a[0])-POSITIONS.indexOf(b[0]));const p=ordered[0]?.[0];if(p){const a=acc.get(`${id}::${p}`);if(a)dominant.push(a)}}
  const normalized=normalizeScoresByPositionAndSeason(dominant.map(a=>({playerId:a.playerId,seasonId:season.id,position:a.position,rawScore:a.rawScore})));
  const norm=new Map(normalized.map(r=>[r.playerId,r]));
- const clubStats=stats.filter(r=>String(r.team_code).toUpperCase()===teamCode); const totals=new Map<string,AnyRow>();
- for(const r of clubStats){if(!r.player_id)continue;const id=String(r.player_id),t=totals.get(id)??{appearances:0,minutes:0,goals:0,assists:0,keyPasses:0,tackles:0,shots:0,saves:0,conceded:0,discipline:0};t.appearances+=n(r.participated)>0||n(r.minutes)>0?1:0;t.minutes+=n(r.minutes);t.goals+=n(r.goals);t.assists+=n(r.assists);t.keyPasses+=n(r.key_passes);t.tackles+=n(r.tackles);t.shots+=n(r.shots);t.saves+=n(r.saves);t.conceded+=n(r.conceded);t.discipline+=n(r.dp);totals.set(id,t)}
- const rows:ClubPerformanceRow[]=[];for(const [id,t] of totals){const nr=norm.get(id);if(!nr)continue;const m=meta.get(id),s=snaps.get(id);let natural:EsmsHistoryPosition|null=null;if(s){natural=getPlayerProfile({st:n(s.st),tk:n(s.tk),ps:n(s.ps),sh:n(s.sh)} as any) as EsmsHistoryPosition}const byPosition=POSITIONS.map(position=>acc.get(`${id}::${position}`)).filter(Boolean).map(a=>({position:a!.position,appearances:a!.appearances,minutes:a!.minutes,rawScore:Math.round(a!.rawScore*10)/10}));rows.push({playerId:id,esmsName:String(m?.esms_name??id),displayName:String(m?.full_name??m?.esms_name??id).replaceAll("_"," "),photoUrl:m?.photo_url?String(m.photo_url):null,nationality:m?.nationality?String(m.nationality):null,naturalPosition:natural,dominantPosition:nr.position,...t,rawScore:Math.round(nr.rawScore*10)/10,zScore:nr.zScore,percentile:nr.percentile,normalizedIndex:nr.normalizedIndex,byPosition})}
+ const clubStats=stats.filter(r=>String(r.team_code).toUpperCase()===teamCode); const totals=new Map<string,PlayerTotals>();
+ for(const r of clubStats){if(!r.player_id)continue;const id=String(r.player_id),t:PlayerTotals=totals.get(id)??{appearances:0,minutes:0,goals:0,assists:0,keyPasses:0,tackles:0,shots:0,saves:0,conceded:0,discipline:0};t.appearances+=n(r.participated)>0||n(r.minutes)>0?1:0;t.minutes+=n(r.minutes);t.goals+=n(r.goals);t.assists+=n(r.assists);t.keyPasses+=n(r.key_passes);t.tackles+=n(r.tackles);t.shots+=n(r.shots);t.saves+=n(r.saves);t.conceded+=n(r.conceded);t.discipline+=n(r.dp);totals.set(id,t)}
+ const rows:ClubPerformanceRow[]=[];for(const [id,t] of totals){const nr=norm.get(id);if(!nr)continue;const m=meta.get(id),s=snaps.get(id);let natural:EsmsHistoryPosition|null=null;if(s){natural=getPlayerProfile({st:n(s.st),tk:n(s.tk),ps:n(s.ps),sh:n(s.sh)} as any) as EsmsHistoryPosition}const byPosition=POSITIONS.map(position=>acc.get(`${id}::${position}`)).filter(Boolean).map(a=>({position:a!.position,appearances:a!.appearances,minutes:a!.minutes,rawScore:Math.round(a!.rawScore*10)/10}));rows.push({
+    playerId:id,
+    esmsName:String(m?.esms_name??id),
+    displayName:String(m?.full_name??m?.esms_name??id).replaceAll("_"," "),
+    photoUrl:m?.photo_url?String(m.photo_url):null,
+    nationality:m?.nationality?String(m.nationality):null,
+    naturalPosition:natural,
+    dominantPosition:nr.position,
+    appearances:t.appearances,
+    minutes:t.minutes,
+    goals:t.goals,
+    assists:t.assists,
+    keyPasses:t.keyPasses,
+    tackles:t.tackles,
+    shots:t.shots,
+    saves:t.saves,
+    conceded:t.conceded,
+    discipline:t.discipline,
+    rawScore:Math.round(nr.rawScore*10)/10,
+    zScore:nr.zScore,
+    percentile:nr.percentile,
+    normalizedIndex:nr.normalizedIndex,
+    byPosition
+  })}
  rows.sort((a,b)=>b.normalizedIndex-a.normalizedIndex||b.minutes-a.minutes);return {season,seasons,rows};
 }
