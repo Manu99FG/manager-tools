@@ -37,15 +37,102 @@ export async function getClubPerformance(teamCodeInput:string, requestedSeasonId
  if(!season)return {season:null,seasons,rows:[]};
  const compsRes=await supabase.from("competitions").select("id").eq("season_id",season.id); if(compsRes.error)throw compsRes.error;
  const compIds=((compsRes.data??[]) as AnyRow[]).map(r=>String(r.id)); if(!compIds.length)return {season,seasons,rows:[]};
- const matchesRes=await supabase.from("matches").select("id,competition_id,status").in("competition_id",compIds).eq("status","PLAYED"); if(matchesRes.error)throw matchesRes.error;
- const matchIds=((matchesRes.data??[]) as AnyRow[]).map(r=>String(r.id)); if(!matchIds.length)return {season,seasons,rows:[]};
+ const matchesRes=await supabase
+  .from("matches")
+  .select("id,competition_id,status,home_team_code,away_team_code")
+  .in("competition_id",compIds)
+  .eq("status","PLAYED");
+ if(matchesRes.error)throw matchesRes.error;
+
+ const playedMatches=((matchesRes.data??[]) as AnyRow[]);
+ const matchIds=playedMatches.map(r=>String(r.id));
+ if(!matchIds.length)return {season,seasons,rows:[]};
+
+ const matchById=new Map(
+  playedMatches.map(r=>[String(r.id),r] as const)
+ );
  const stats:AnyRow[]=[]; for(let i=0;i<matchIds.length;i+=100){const r=await supabase.from("match_player_stats").select("match_id,player_id,team_code,esms_name,participated,minutes,saves,conceded,tackles,key_passes,shots,goals,assists,dp,position_at_match").in("match_id",matchIds.slice(i,i+100));if(r.error)throw r.error;stats.push(...(r.data??[]));}
- const ids=[...new Set(stats.map(r=>r.player_id&&String(r.player_id)).filter(Boolean))] as string[];
- const playersRes=ids.length?await supabase.from("players").select("id,esms_name,full_name,photo_url,nationality").in("id",ids):{data:[],error:null} as any; if(playersRes.error)throw playersRes.error;
- const snapsRes=ids.length?await supabase.from("latest_player_snapshots").select("player_id,st,tk,ps,sh").in("player_id",ids):{data:[],error:null} as any;if(snapsRes.error)throw snapsRes.error;
- const meta=new Map(((playersRes.data??[]) as AnyRow[]).map(r=>[String(r.id),r])); const snaps=new Map(((snapsRes.data??[]) as AnyRow[]).map(r=>[String(r.player_id),r]));
+ const directIds=[...new Set(stats.map(r=>r.player_id&&String(r.player_id)).filter(Boolean))] as string[];
+ const statNames=[...new Set(stats.map(r=>String(r.esms_name??"").trim()).filter(Boolean))];
+
+ const playerRows:AnyRow[]=[];
+ for(let i=0;i<directIds.length;i+=100){
+  const r=await supabase
+   .from("players")
+   .select("id,esms_name,full_name,photo_url,nationality")
+   .in("id",directIds.slice(i,i+100));
+  if(r.error)throw r.error;
+  playerRows.push(...(r.data??[]));
+ }
+ // Recupera también jugadores de importaciones antiguas donde match_player_stats.player_id es NULL.
+ for(let i=0;i<statNames.length;i+=100){
+  const r=await supabase
+   .from("players")
+   .select("id,esms_name,full_name,photo_url,nationality")
+   .in("esms_name",statNames.slice(i,i+100));
+  if(r.error)throw r.error;
+  playerRows.push(...(r.data??[]));
+ }
+
+ const uniquePlayers=new Map<string,AnyRow>();
+ for(const r of playerRows)uniquePlayers.set(String(r.id),r);
+ const ids=[...uniquePlayers.keys()];
+
+ const snapsRows:AnyRow[]=[];
+ for(let i=0;i<ids.length;i+=100){
+  const r=await supabase
+   .from("latest_player_snapshots")
+   .select("player_id,st,tk,ps,sh")
+   .in("player_id",ids.slice(i,i+100));
+  if(r.error)throw r.error;
+  snapsRows.push(...(r.data??[]));
+ }
+
+ const meta=new Map([...uniquePlayers.entries()]);
+ const snaps=new Map(snapsRows.map(r=>[String(r.player_id),r]));
+ const normalizeEsmsName=(value:unknown)=>String(value??"").trim().toLowerCase();
+ const playerIdByEsmsName=new Map<string,string>();
+ for(const [id,r] of meta){
+  const key=normalizeEsmsName(r.esms_name);
+  if(key&&!playerIdByEsmsName.has(key))playerIdByEsmsName.set(key,id);
+ }
+ const resolvePlayerId=(r:AnyRow):string|null=>{
+  if(r.player_id)return String(r.player_id);
+  return playerIdByEsmsName.get(normalizeEsmsName(r.esms_name))??null;
+ };
+
  type Acc={playerId:string;position:EsmsHistoryPosition;rawScore:number;minutes:number;appearances:number}; const acc=new Map<string,Acc>(); const mins=new Map<string,Map<EsmsHistoryPosition,number>>();
- for(const r of stats){if(!r.player_id)continue;const p=pos(r.position_at_match);if(!p)continue;const id=String(r.player_id);const pm=mins.get(id)??new Map();pm.set(p,(pm.get(p)??0)+n(r.minutes));mins.set(id,pm);const k=`${id}::${p}`;const a=acc.get(k)??{playerId:id,position:p,rawScore:0,minutes:0,appearances:0};a.rawScore+=getPositionPerformanceScore({position:p,saves:n(r.saves),conceded:n(r.conceded),minutes:n(r.minutes),discipline:n(r.dp),tackles:n(r.tackles),keyPasses:n(r.key_passes),assists:n(r.assists),goals:n(r.goals),shots:n(r.shots)});a.minutes+=n(r.minutes);a.appearances+=n(r.participated)>0||n(r.minutes)>0?1:0;acc.set(k,a)}
+ const accAppearanceKeys=new Set<string>();
+ for(const r of stats){
+  const id=resolvePlayerId(r);
+  if(!id)continue;
+  const p=pos(r.position_at_match);
+  if(!p)continue;
+  const pm=mins.get(id)??new Map();
+  pm.set(p,(pm.get(p)??0)+n(r.minutes));
+  mins.set(id,pm);
+  const k=`${id}::${p}`;
+  const a=acc.get(k)??{playerId:id,position:p,rawScore:0,minutes:0,appearances:0};
+  a.rawScore+=getPositionPerformanceScore({
+   position:p,
+   saves:n(r.saves),
+   conceded:n(r.conceded),
+   minutes:n(r.minutes),
+   discipline:n(r.dp),
+   tackles:n(r.tackles),
+   keyPasses:n(r.key_passes),
+   assists:n(r.assists),
+   goals:n(r.goals),
+   shots:n(r.shots)
+  });
+  a.minutes+=n(r.minutes);
+  const appearanceKey=`${id}::${String(r.match_id)}::${p}`;
+  if(!accAppearanceKeys.has(appearanceKey)){
+   a.appearances+=1;
+   accAppearanceKeys.add(appearanceKey);
+  }
+  acc.set(k,a);
+ }
  const dominant:Acc[]=[];
  for(const [id,m] of mins){
   const ordered=[...m].sort(
@@ -93,15 +180,39 @@ export async function getClubPerformance(teamCodeInput:string, requestedSeasonId
   }))
  );
  const norm=new Map(normalized.map(r=>[r.playerId,r]));
- const clubStats=stats.filter(r=>String(r.team_code).toUpperCase()===teamCode);
- const totals=new Map<string,PlayerTotals>();
  const playedMatchIds=new Set(matchIds);
 
+ const belongsToClubMatch=(r:AnyRow)=>{
+  const match=matchById.get(String(r.match_id));
+  if(!match)return false;
+
+  const home=String(match.home_team_code??"").toUpperCase();
+  const away=String(match.away_team_code??"").toUpperCase();
+
+  if(home!==teamCode && away!==teamCode)return false;
+
+  // Si el stat trae team_code fiable, lo usamos. Si es legacy/incorrecto,
+  // no descartamos automáticamente el registro: basta con que el jugador
+  // esté registrado en un partido oficial del club y podamos resolver su identidad.
+  const statTeam=String(r.team_code??"").toUpperCase();
+  if(statTeam===teamCode)return true;
+
+  // Fallback legacy: en partidos antiguos el team_code individual puede venir
+  // con alias/código viejo. Permitimos el registro si el jugador puede resolverse
+  // y el partido pertenece al club actual.
+  return Boolean(resolvePlayerId(r));
+ };
+
+ const clubStats=stats.filter(r=>belongsToClubMatch(r));
+ const totals=new Map<string,PlayerTotals>();
+
+ const totalAppearanceKeys=new Set<string>();
  for(const r of clubStats){
-  if(!r.player_id)continue;
   if(!playedMatchIds.has(String(r.match_id)))continue;
 
-  const id=String(r.player_id);
+  const id=resolvePlayerId(r);
+  if(!id)continue;
+
   const t:PlayerTotals=totals.get(id)??{
     appearances:0,
     minutes:0,
@@ -115,13 +226,16 @@ export async function getClubPerformance(teamCodeInput:string, requestedSeasonId
     discipline:0
   };
 
-  // Si existe una fila individual del jugador para un partido PLAYED,
-  // contamos ese partido como aparición. De esta manera el contador PJ
-  // no depende exclusivamente de participated/minutes, que en importaciones
-  // antiguas pueden venir a 0 aunque sí existan datos del partido.
-  t.appearances+=1;
+  // Un PJ por jugador y partido PLAYED, incluso si una importación antigua
+  // dejó player_id/participated incompletos. El esms_name permite recuperar
+  // la identidad del jugador.
+  const appearanceKey=`${id}::${String(r.match_id)}`;
+  if(!totalAppearanceKeys.has(appearanceKey)){
+   t.appearances+=1;
+   totalAppearanceKeys.add(appearanceKey);
+  }
 
-  // Siempre acumulamos los datos reales guardados para ese partido.
+  // Se acumulan SIEMPRE las estadísticas reales guardadas en el partido.
   t.minutes+=n(r.minutes);
   t.goals+=n(r.goals);
   t.assists+=n(r.assists);
