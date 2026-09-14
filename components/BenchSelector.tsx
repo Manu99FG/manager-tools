@@ -370,7 +370,7 @@ export default function BenchSelector({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0 overflow-x-hidden">
       {/* CABECERA */}
 
       <div
@@ -448,7 +448,7 @@ export default function BenchSelector({
                 key={slot.id}
                 className="
                   grid
-                  grid-cols-[26px_80px_minmax(0,1fr)]
+                  grid-cols-[24px_minmax(64px,80px)_minmax(0,1fr)]
                   items-start
                   gap-2
 
@@ -487,6 +487,8 @@ export default function BenchSelector({
                   }
                   className={`
                     h-10
+                    min-w-0
+                    w-full
                     rounded-md
                     border
                     border-[var(--mt-line)]
@@ -684,6 +686,7 @@ export default function BenchSelector({
                         absolute
                         left-0
                         right-0
+                        max-w-full
                         top-full
                         z-[300]
                         mt-2
