@@ -2104,7 +2104,7 @@ export default function ShtCreator({
 
               sm:grid-cols-2
 
-              lg:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_minmax(170px,1fr)_minmax(150px,1fr)_auto_auto_auto_auto]
+              lg:grid-cols-4
               lg:items-end
             "
           >
@@ -2434,11 +2434,11 @@ export default function ShtCreator({
               className="
                 min-h-[42px]
                 rounded-lg
-                bg-[var(--mt-gold)]
+                bg-[var(--mt-gold-dark)]
                 px-5
                 text-sm
                 font-bold
-                text-[var(--mt-surface)]
+                text-white
                 transition
 
                 hover:bg-[var(--mt-gold-dark)]
@@ -2501,7 +2501,7 @@ export default function ShtCreator({
                 hover:text-[var(--mt-gold-dark)]
               "
             >
-              Cargar ABREVIATURAsht.txt
+              Importar y comprobar
             </button>
 
           </div>
@@ -3463,7 +3463,6 @@ function TabButton({
     </button>
   );
 }
-
 
 
 
