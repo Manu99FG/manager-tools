@@ -2588,7 +2588,7 @@ export default function ShtCreator({
             <table
               className="
                 w-full
-                min-w-[940px]
+                min-w-[760px]
                 border-collapse
               "
             >
@@ -3474,6 +3474,5 @@ function TabButton({
     </button>
   );
 }
-
 
 
