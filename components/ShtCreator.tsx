@@ -2504,30 +2504,6 @@ export default function ShtCreator({
               Cargar ABREVIATURAsht.txt
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href =
-                  "/alineaciones";
-              }}
-              className="
-                min-h-[42px]
-                rounded-lg
-                border
-                border-emerald-500/40
-                bg-emerald-500/10
-                px-5
-                text-sm
-                font-bold
-                text-emerald-700
-                transition
-
-                hover:bg-emerald-500/20
-                hover:text-emerald-700
-              "
-            >
-              Enviar alineación
-            </button>
           </div>
         </div>
 
@@ -3487,7 +3463,6 @@ function TabButton({
     </button>
   );
 }
-
 
 
 

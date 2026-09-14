@@ -497,7 +497,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-[var(--mt-surface)]
+            bg-green-600/20
           "
         />
 
@@ -508,7 +508,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-[var(--mt-surface)]
+            bg-green-600/20
           "
         />
 
@@ -519,7 +519,7 @@ export default function FootballPitch({
             top-0
             h-full
             w-1/6
-            bg-[var(--mt-surface)]
+            bg-green-600/20
           "
         />
 
