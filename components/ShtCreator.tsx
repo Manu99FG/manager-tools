@@ -1786,22 +1786,33 @@ export default function ShtCreator({
         )
         .filter(Boolean);
 
-    return [
-      selectedTeam,
-      tacticalStyle,
-      ...starterLines,
-      ...benchLines,
+    const controlLines = [
       "PK: " +
         (penaltyPlayer
-          ? getSheetPlayerName(
-              penaltyPlayer
-            )
+          ? getSheetPlayerName(penaltyPlayer)
           : ""),
       ...(initialAggression
         ? ["AGG " + initialAggression]
         : []),
+    ];
+
+    const conditionLines = [
       ...changeLines,
       ...importedAdvancedOrders,
+    ];
+
+    // Formato ESMS: bloques separados por una línea en blanco.
+    return [
+      selectedTeam,
+      tacticalStyle,
+      "",
+      ...starterLines,
+      "",
+      ...benchLines,
+      "",
+      ...controlLines,
+      "",
+      ...conditionLines,
       "",
     ].join("\r\n");
   }
@@ -3463,7 +3474,6 @@ function TabButton({
     </button>
   );
 }
-
 
 
 
