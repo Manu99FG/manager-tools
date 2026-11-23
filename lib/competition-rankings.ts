@@ -143,7 +143,8 @@ async function getCompetitionStatsRows(
 
   if (!teamCodes) return rows;
 
-  return rows.filter((row) => teamCodes.has(row.team_code));
+  // Los códigos de equipo pueden llegar con espacios o diferente capitalización.
+  return rows.filter((row) => teamCodes.has(String(row.team_code ?? "").trim().toUpperCase()));
 }
 
 export type CompetitionStatisticsBundle = {
@@ -206,7 +207,7 @@ export async function getCompetitionDisplayStatistics(
   }
 
   const teamCodes = new Set(
-    (teamRows ?? []).map((row) => String(row.team_code))
+    (teamRows ?? []).map((row) => String(row.team_code ?? "").trim().toUpperCase()).filter(Boolean)
   );
 
   if (!teamCodes.size) {
@@ -218,7 +219,14 @@ export async function getCompetitionDisplayStatistics(
     teamCodes
   );
 
-  return buildStatisticsFromRows(data);
+  // Cada registro de partido se cuenta una sola vez aunque una consulta
+  // combinada llegase a devolver la misma fila más de una vez.
+  const unique = new Map<string, RawRow>();
+  for (const row of data) {
+    const playerKey = row.player_id ?? `${row.team_code}::${row.esms_name}`;
+    unique.set(`${row.match_id}::${playerKey}`, row);
+  }
+  return buildStatisticsFromRows([...unique.values()]);
 }
 
 function buildStatisticsFromRows(

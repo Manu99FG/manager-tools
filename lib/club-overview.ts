@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getAllPlayers } from "@/lib/all-players";
+import { getPlayerProfile } from "@/lib/esms-player";
 import { getClubHistory } from "@/lib/club-history";
 import { getPositionPerformanceScore, type EsmsHistoryPosition } from "@/lib/performance-score";
 
@@ -71,6 +72,8 @@ function n(value: unknown) {
 function matchDate(row: AnyRow) {
   return row.scheduled_at ?? row.played_at ?? row.created_at ?? null;
 }
+
+const STATS_PAGE_SIZE = 1000;
 
 function normalizePosition(value: unknown): EsmsHistoryPosition | null {
   const position = String(value ?? "").trim().toUpperCase() as EsmsHistoryPosition;
@@ -150,20 +153,38 @@ export async function getClubOverview(teamCodeInput: string): Promise<ClubOvervi
     };
   }
 
-  const [matchesResult, statsResult] = await Promise.all([
+  // Supabase/PostgREST limita el número de filas por consulta.
+  // Paginar evita que las posiciones que aparecen después del límite queden sin candidatos.
+  const getSeasonStats = async (): Promise<AnyRow[]> => {
+    const rows: AnyRow[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("match_player_stats")
+        .select("player_id,esms_name,team_code,position_at_match,participated,minutes,mom,saves,conceded,tackles,key_passes,shots,goals,assists,dp,matches!inner(competition_id)")
+        .eq("team_code", teamCode)
+        .in("matches.competition_id", competitionIds)
+        .order("id", { ascending: true })
+        .range(from, from + STATS_PAGE_SIZE - 1);
+      if (error) throw error;
+      const page = (data ?? []) as AnyRow[];
+      rows.push(...page);
+      if (page.length < STATS_PAGE_SIZE) break;
+      from += STATS_PAGE_SIZE;
+    }
+    return rows;
+  };
+
+  const [matchesResult, seasonStats] = await Promise.all([
     supabase
       .from("matches")
       .select("id,competition_id,home_team_code,away_team_code,home_score,away_score,status,scheduled_at,played_at,created_at")
       .in("competition_id", competitionIds)
       .or(`home_team_code.eq.${teamCode},away_team_code.eq.${teamCode}`),
-    supabase
-      .from("match_player_stats")
-      .select("player_id,esms_name,team_code,position_at_match,participated,minutes,mom,saves,conceded,tackles,key_passes,shots,goals,assists,dp,matches!inner(competition_id)")
-      .eq("team_code", teamCode),
+    getSeasonStats(),
   ]);
 
   if (matchesResult.error) throw matchesResult.error;
-  if (statsResult.error) throw statsResult.error;
 
   const competitionById = new Map(competitions.map((competition) => [competition.id, competition]));
   const allMatches: ClubOverviewMatch[] = ((matchesResult.data ?? []) as AnyRow[]).map((row) => ({
@@ -197,36 +218,28 @@ export async function getClubOverview(teamCodeInput: string): Promise<ClubOvervi
 
   const playerById = new Map(((playersResult.data ?? []) as AnyRow[]).map((row) => [String(row.id), row]));
   const aggregates = new Map<string, ClubOverviewFeaturedPlayer>();
-
-  for (const raw of (statsResult.data ?? []) as AnyRow[]) {
-    const joined = Array.isArray(raw.matches) ? raw.matches[0] : raw.matches;
-    if (!joined || !competitionIds.includes(String(joined.competition_id))) continue;
-    const position = normalizePosition(raw.position_at_match);
-    if (!position) continue;
-
-    const key = `${raw.player_id ?? raw.esms_name}::${position}`;
+  // La plantilla clasifica por habilidades; position_at_match describe el rol
+  // utilizado en un partido y puede ser DM/AM incluso para un MF de plantilla.
+  // Mantener un acumulado alternativo MF con estadísticas SOLO de esta temporada.
+  const mfRosterNames = new Set(
+    roster.filter((player) => getPlayerProfile(player) === "MF")
+      .map((player) => player.name.trim().toUpperCase()),
+  );
+  const mfRosterAggregates = new Map<string, ClubOverviewFeaturedPlayer>();
+  const addStats = (target: Map<string, ClubOverviewFeaturedPlayer>, key: string,
+    position: EsmsHistoryPosition, raw: AnyRow) => {
     const player = raw.player_id ? playerById.get(String(raw.player_id)) : null;
-    const current = aggregates.get(key) ?? {
+    const current = target.get(key) ?? {
       position,
       playerId: raw.player_id ? String(raw.player_id) : null,
       esmsName: String(raw.esms_name ?? "Jugador"),
       displayName: String(player?.full_name ?? raw.esms_name ?? "Jugador").replaceAll("_", " "),
       photoUrl: player?.photo_url ? String(player.photo_url) : null,
-      appearances: 0,
-      minutes: 0,
-      goals: 0,
-      assists: 0,
-      saves: 0,
-      conceded: 0,
-      tackles: 0,
-      keyPasses: 0,
-      shots: 0,
-      mom: 0,
-      discipline: 0,
-      score: 0,
+      appearances: 0, minutes: 0, goals: 0, assists: 0, saves: 0,
+      conceded: 0, tackles: 0, keyPasses: 0, shots: 0, mom: 0,
+      discipline: 0, score: 0,
     };
-
-    current.appearances += n(raw.participated);
+    current.appearances += n(raw.participated) > 0 || n(raw.minutes) > 0 ? 1 : 0;
     current.minutes += n(raw.minutes);
     current.goals += n(raw.goals);
     current.assists += n(raw.assists);
@@ -237,12 +250,31 @@ export async function getClubOverview(teamCodeInput: string): Promise<ClubOvervi
     current.shots += n(raw.shots);
     current.mom += n(raw.mom);
     current.discipline += n(raw.dp);
-    aggregates.set(key, current);
+    target.set(key, current);
+  };
+
+  for (const raw of seasonStats) {
+    const joined = Array.isArray(raw.matches) ? raw.matches[0] : raw.matches;
+    if (!joined || !competitionIds.includes(String(joined.competition_id))) continue;
+    const position = normalizePosition(raw.position_at_match);
+    if (position) {
+      addStats(aggregates, `${raw.player_id ?? raw.esms_name}::${position}`, position, raw);
+    }
+    // Respaldo: la posición MF de plantilla se obtiene por las habilidades ESMS,
+    // no por la posición táctica que se asignó en cada partido.
+    const esmsName = String(raw.esms_name ?? "").trim().toUpperCase();
+    if (mfRosterNames.has(esmsName)) {
+      addStats(mfRosterAggregates, String(raw.player_id ?? esmsName), "MF", raw);
+    }
   }
 
   const featured = POSITIONS.map((position) => {
-    const candidates = [...aggregates.values()]
-      .filter((player) => player.position === position && player.appearances > 0)
+    const primary = [...aggregates.values()]
+      .filter((player) => player.position === position && player.appearances > 0);
+    const fallback = position === "MF" && primary.length === 0
+      ? [...mfRosterAggregates.values()].filter((player) => player.appearances > 0)
+      : [];
+    const candidates = [...primary, ...fallback]
       .map((player) => ({
         ...player,
         score: getPositionPerformanceScore({

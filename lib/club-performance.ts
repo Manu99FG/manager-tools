@@ -186,7 +186,7 @@ export async function getClubPerformance(
     String(row.id)
   );
 
-  if (!competitionIds.length) return { season, seasons, rows: [] };
+  // No salir: una temporada sin competiciones también muestra la plantilla.
 
   // Cargamos todos los partidos PLAYED de la temporada con paginación.
   // Esto evita perder encuentros si Supabase alcanza su límite de filas.
@@ -197,7 +197,7 @@ export async function getClubPerformance(
 
   const matchIds = seasonPlayedMatches.map((row) => String(row.id));
 
-  if (!matchIds.length) return { season, seasons, rows: [] };
+  // No salir: incluso sin partidos deben mostrarse todos los jugadores de la plantilla.
 
   const stats = await loadPlayerStatsForMatches(supabase, matchIds);
 
@@ -513,9 +513,15 @@ export async function getClubPerformance(
 
   const rows: ClubPerformanceRow[] = [];
 
-  for (const [playerId, total] of clubAccumulators.entries()) {
+  // Incluimos a todos los jugadores actuales, también con 0 PJ y 0 minutos.
+  for (const playerId of currentRosterIds) {
+    const principalPosition = getPrincipalPosition(playerId) ?? "MF";
+    const total = clubAccumulators.get(playerId) ?? {
+      playerId, position: principalPosition, appearances: 0, minutes: 0,
+      goals: 0, assists: 0, keyPasses: 0, tackles: 0, shots: 0,
+      saves: 0, conceded: 0, discipline: 0, rawScore: 0,
+    };
     const normalizedRow = normalizedByPlayer.get(playerId);
-    if (!normalizedRow) continue;
 
     const player = playersById.get(playerId);
     if (!player) continue;
@@ -556,9 +562,9 @@ export async function getClubPerformance(
       conceded: total.conceded,
       discipline: total.discipline,
       rawScore: Math.round(total.rawScore * 10) / 10,
-      zScore: normalizedRow.zScore,
-      percentile: normalizedRow.percentile,
-      normalizedIndex: normalizedRow.normalizedIndex,
+      zScore: normalizedRow?.zScore ?? 0,
+      percentile: normalizedRow?.percentile ?? 0,
+      normalizedIndex: normalizedRow?.normalizedIndex ?? 0,
       byPosition,
     });
   }
