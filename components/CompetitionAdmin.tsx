@@ -270,6 +270,26 @@ export default function CompetitionAdmin({
     }
   }
 
+  async function changeCompetitionStatus(competition: CompetitionWithSeason, status: Competition["status"]) {
+    if (competition.status === status) return;
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      await requestJson("/api/admin/competition-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competitionId: competition.id, status }),
+      });
+      setMessage(`«${competition.name}»: estado actualizado a ${STATUS_LABEL[status]}.`);
+      router.refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "No se pudo cambiar el estado.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteCompetition(competition: CompetitionWithSeason) {
     const counts = countsByCompetition[competition.id];
     const confirmed = window.confirm(
@@ -416,7 +436,23 @@ export default function CompetitionAdmin({
                     <td><span className="admin-comp-season"><CalendarIcon />{competition.season?.name ?? "—"}</span></td>
                     <td className="admin-comp-number">{counts.teamCount}</td>
                     <td className="admin-comp-number">{counts.matchCount}</td>
-                    <td><StatusBadge status={competition.status} /></td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <StatusBadge status={competition.status} />
+                        <select
+                          aria-label={`Cambiar estado de ${competition.name}`}
+                          title="Cambiar estado de la competición"
+                          value={competition.status}
+                          disabled={busy}
+                          onChange={(event) => changeCompetitionStatus(competition, event.target.value as Competition["status"])}
+                          style={{ maxWidth: 145, padding: "5px 7px", borderRadius: 6 }}
+                        >
+                          <option value="DRAFT">Creada</option>
+                          <option value="ACTIVE">Activa</option>
+                          <option value="FINISHED">Finalizada</option>
+                        </select>
+                      </div>
+                    </td>
                     <td className="admin-comp-date">{formatDate(competition.season?.starts_at)}</td>
                     <td className="admin-comp-date">{formatDate(competition.season?.ends_at)}</td>
                     <td>
