@@ -1,0 +1,10 @@
+MANAGER TOOLS — REVISIÓN 5
+
+Cambio de esta revisión:
+- components/PlayerSearch.tsx: se añaden filtros combinables mínimo/máximo para AG, GAM, SUB, MIN, MOM, SAV, CON, KTK, KPS, SHT, GLS, ASS, DP, INJ, SUS y FIT.
+- Se conservan los filtros previos de edad, nacionalidad, ST, TK, PS, SH, KAB, TAB, PAB y SAB y la búsqueda por nombre, equipo y posición.
+- Todos los jugadores siguen apareciendo, incluidos los que tienen 0 minutos, salvo que un filtro activo los excluya.
+- GAM representa el dato ESMS del archivo, no se presenta como partidos de temporada calculados.
+
+Estado: NO APTO PARA PRODUCCIÓN. Falta npm run build y prueba con Supabase/Dropbox. npm ci --offline falla porque zod-validation-error@4.0.2 no está en caché.
+Pendiente: revisión de récords y otras integraciones de las 10 solicitudes.

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import EsmsMatchImporter from "@/components/EsmsMatchImporter";
 import CompetitionQualificationAdmin from "@/components/CompetitionQualificationAdmin";
 import CompetitionGroupsAdmin from "@/components/CompetitionGroupsAdmin";
+import CompetitionRoundDatesAdmin from "@/components/CompetitionRoundDatesAdmin";
 
 import type {
   Competition,
@@ -393,6 +394,7 @@ export default function CompetitionMatchAdmin({ data }: Props) {
                 <Setting label="Puntos por derrota" value={String(competition.points_loss)} />
                 <Setting label="Partidos" value={String(matches.length)} />
               </div>
+              {competition.type !== "LEAGUE" ? <CompetitionRoundDatesAdmin competitionId={competition.id} rounds={rounds} /> : null}
             </section>
           ) : null}
 

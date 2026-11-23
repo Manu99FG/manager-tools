@@ -40,7 +40,8 @@ type SortKey =
   | "kab"
   | "tab"
   | "pab"
-  | "sab";
+  | "sab"
+  | "ag" | "gam" | "sub" | "min" | "mom" | "sav" | "con" | "ktk" | "kps" | "sht" | "gls" | "ass" | "dp" | "inj" | "sus" | "fit";
 
 type SortDirection =
   | "asc"
@@ -56,7 +57,8 @@ type AdvancedFilterType =
   | "kab"
   | "tab"
   | "pab"
-  | "sab";
+  | "sab"
+  | "ag" | "gam" | "sub" | "min" | "mom" | "sav" | "con" | "ktk" | "kps" | "sht" | "gls" | "ass" | "dp" | "inj" | "sus" | "fit";
 
 type AdvancedFilter = {
   id: number;
@@ -142,6 +144,22 @@ const ADVANCED_FILTER_OPTIONS: {
     value: "sab",
     label: "SAb",
   },
+  { value: "ag", label: "AG · Agresividad" },
+  { value: "gam", label: "GAM · Partidos ESMS" },
+  { value: "sub", label: "SUB · Suplencias" },
+  { value: "min", label: "MIN · Minutos" },
+  { value: "mom", label: "MOM · MVP" },
+  { value: "sav", label: "SAV · Paradas" },
+  { value: "con", label: "CON · Goles encajados" },
+  { value: "ktk", label: "KTK · Entradas" },
+  { value: "kps", label: "KPS · Pases" },
+  { value: "sht", label: "SHT · Tiros" },
+  { value: "gls", label: "GLS · Goles" },
+  { value: "ass", label: "ASS · Asistencias" },
+  { value: "dp", label: "DP · Puntos disciplinarios" },
+  { value: "inj", label: "INJ · Lesión" },
+  { value: "sus", label: "SUS · Sanción" },
+  { value: "fit", label: "FIT · Forma" },
 ];
 
 /* ===========================================
@@ -555,6 +573,38 @@ export default function PlayerSearch({
               filter
             );
 
+          case "ag":
+            return matchesNumericFilter(player.ag, filter);
+          case "gam":
+            return matchesNumericFilter(player.gam, filter);
+          case "sub":
+            return matchesNumericFilter(player.sub, filter);
+          case "min":
+            return matchesNumericFilter(player.min, filter);
+          case "mom":
+            return matchesNumericFilter(player.mom, filter);
+          case "sav":
+            return matchesNumericFilter(player.sav, filter);
+          case "con":
+            return matchesNumericFilter(player.con, filter);
+          case "ktk":
+            return matchesNumericFilter(player.ktk, filter);
+          case "kps":
+            return matchesNumericFilter(player.kps, filter);
+          case "sht":
+            return matchesNumericFilter(player.sht, filter);
+          case "gls":
+            return matchesNumericFilter(player.gls, filter);
+          case "ass":
+            return matchesNumericFilter(player.ass, filter);
+          case "dp":
+            return matchesNumericFilter(player.dp, filter);
+          case "inj":
+            return matchesNumericFilter(player.inj, filter);
+          case "sus":
+            return matchesNumericFilter(player.sus, filter);
+          case "fit":
+            return matchesNumericFilter(player.fit, filter);
           default:
             return true;
         }

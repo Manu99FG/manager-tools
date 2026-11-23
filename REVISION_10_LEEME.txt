@@ -1,0 +1,1 @@
+REVISION 10: Respaldo MF usando la clasificacion de habilidades de la plantilla ESMS cuando no hay MF en position_at_match. Se suman exclusivamente las estadisticas de la temporada activa. No se han validado conexiones externas ni compilacion completa.

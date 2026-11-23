@@ -34,6 +34,7 @@ type ApiResponse = {
     teamCodes: string[];
     inserted: number;
     pendingInsert?: number;
+    calendarConflict?: boolean;
   }>;
   generatedCalendars?: Array<{
     competitionId: string;
@@ -187,8 +188,11 @@ export default function CompetitionQualificationAdmin({
         setMessage("Reglas de clasificación guardadas.");
       } else if (action === "preview") {
         setLastAssignments(data.assignments ?? []);
-        setPreviewReady(true);
-        setMessage("Vista previa preparada. Revisa el reparto antes de finalizar la competición.");
+        const conflicts = (data.assignments ?? []).filter((item) => item.calendarConflict);
+        setPreviewReady(conflicts.length === 0);
+        setMessage(conflicts.length
+          ? `Vista previa disponible. No puedes finalizar todavía: ${conflicts.map((item) => item.destinationName).join(", ")} ya tiene calendario y necesita incorporar nuevos clasificados. Revisa el calendario de destino antes de continuar.`
+          : "Vista previa preparada. Revisa el reparto antes de finalizar la competición.");
       } else {
         setLastAssignments(data.assignments ?? []);
         setPreviewReady(false);
@@ -436,7 +440,7 @@ export default function CompetitionQualificationAdmin({
               Se marcará la competición como finalizada y se inscribirán los equipos mostrados en la vista previa en sus competiciones de destino. Los resultados, goles, asistencias, minutos y demás estadísticas de esta competición permanecerán separados.
             </p>
             <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm font-bold text-emerald-700">
-              Primera/Segunda División comenzarán con estadísticas propias desde cero.
+              Las estadísticas de {competition.name} no se transferirán a las competiciones de destino. Las estadísticas que ya existan en los destinos se conservarán.
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" disabled={busy !== null} onClick={() => setConfirmFinalize(false)} className="rounded-xl border border-[var(--mt-line)] px-4 py-3 text-sm font-black text-[var(--mt-text)]">Cancelar</button>

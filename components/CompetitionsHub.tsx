@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import ManagerMediaImage from "@/components/ManagerMediaImage";
 import { FormatMark } from "@/components/CompetitionFormatView";
 import { COMPETITION_FORMAT } from "@/lib/competition-format";
 import Link from "next/link";
@@ -155,10 +156,11 @@ export default function CompetitionsHub({
           {visible.map((competition) => (
             <article className={`v31-card competition-card-${competition.type.toLowerCase()}`} key={competition.id}>
               <div className="v31-card-image">
-                <Image
-                  src={imageFor(competition.type)}
-                  alt=""
-                  fill
+                <ManagerMediaImage
+                  kind="competition"
+                  entityId={competition.id}
+                  fallback={imageFor(competition.type)}
+                  alt={`Portada de ${competition.name}`}
                   sizes="(max-width: 900px) 100vw, 33vw"
                   className="v31-card-photo"
                 />

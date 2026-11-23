@@ -1,0 +1,1 @@
+Revisión 15: ordenar visualmente las vueltas según el cruce de ida, usando equipos invertidos. No modifica partidos ni base de datos. Si el emparejamiento no es unívoco se mantiene el orden existente. Pendiente de pruebas en entorno real.

@@ -1786,33 +1786,22 @@ export default function ShtCreator({
         )
         .filter(Boolean);
 
-    const controlLines = [
+    return [
+      selectedTeam,
+      tacticalStyle,
+      ...starterLines,
+      ...benchLines,
       "PK: " +
         (penaltyPlayer
-          ? getSheetPlayerName(penaltyPlayer)
+          ? getSheetPlayerName(
+              penaltyPlayer
+            )
           : ""),
       ...(initialAggression
         ? ["AGG " + initialAggression]
         : []),
-    ];
-
-    const conditionLines = [
       ...changeLines,
       ...importedAdvancedOrders,
-    ];
-
-    // Formato ESMS: bloques separados por una línea en blanco.
-    return [
-      selectedTeam,
-      tacticalStyle,
-      "",
-      ...starterLines,
-      "",
-      ...benchLines,
-      "",
-      ...controlLines,
-      "",
-      ...conditionLines,
       "",
     ].join("\r\n");
   }
@@ -2115,7 +2104,7 @@ export default function ShtCreator({
 
               sm:grid-cols-2
 
-              lg:grid-cols-4
+              lg:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_minmax(170px,1fr)_minmax(150px,1fr)_auto_auto_auto_auto]
               lg:items-end
             "
           >
@@ -2445,11 +2434,11 @@ export default function ShtCreator({
               className="
                 min-h-[42px]
                 rounded-lg
-                bg-[var(--mt-gold-dark)]
+                bg-[var(--mt-gold)]
                 px-5
                 text-sm
                 font-bold
-                text-white
+                text-[var(--mt-surface)]
                 transition
 
                 hover:bg-[var(--mt-gold-dark)]
@@ -2512,9 +2501,33 @@ export default function ShtCreator({
                 hover:text-[var(--mt-gold-dark)]
               "
             >
-              Importar y comprobar
+              Cargar .sht
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  "/alineaciones";
+              }}
+              className="
+                min-h-[42px]
+                rounded-lg
+                border
+                border-emerald-500/40
+                bg-emerald-500/10
+                px-5
+                text-sm
+                font-bold
+                text-emerald-700
+                transition
+
+                hover:bg-emerald-500/20
+                hover:text-emerald-700
+              "
+            >
+              Enviar alineación
+            </button>
           </div>
         </div>
 
@@ -2588,7 +2601,7 @@ export default function ShtCreator({
             <table
               className="
                 w-full
-                min-w-[760px]
+                min-w-[940px]
                 border-collapse
               "
             >
@@ -3474,5 +3487,10 @@ function TabButton({
     </button>
   );
 }
+
+
+
+
+
 
 

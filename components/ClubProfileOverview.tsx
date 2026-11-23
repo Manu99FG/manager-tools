@@ -4,6 +4,8 @@ import { getClubLogo } from "@/lib/club-logo";
 import { getClubName } from "@/lib/club-names";
 import type { ClubOverviewData, ClubOverviewMatch } from "@/lib/club-overview";
 
+const FEATURED_POSITIONS = ["GK", "DF", "DM", "MF", "AM", "FW"] as const;
+
 export default function ClubProfileOverview({ teamCode, data }: { teamCode: string; data: ClubOverviewData }) {
   return <>
     <section className="club-v33-primary-grid">
@@ -22,13 +24,20 @@ export default function ClubProfileOverview({ teamCode, data }: { teamCode: stri
     </section>
     <section className="club-v33-secondary-grid">
       <Panel title="Jugadores destacados de la temporada" icon="star" action={<Link href={`/clubes/${teamCode}/plantilla`}>Ver plantilla →</Link>} className="club-v33-featured-panel">
-        {data.featured.length ? <div className="club-v33-featured-grid">{data.featured.map((player) => (
+        {data.featured.length ? <div className="club-v33-featured-grid">{FEATURED_POSITIONS.map((position) => {
+          const player = data.featured.find((candidate) => candidate.position === position);
+          return player ? (
           <Link href={player.playerId ? `/jugadores/${player.playerId}` : `/clubes/${teamCode}/plantilla`} key={player.position} className="club-v33-player-card">
             <span className={`club-v33-pos pos-${player.position.toLowerCase()}`}>{player.position}</span>
             <div className="club-v33-player-photo">{player.photoUrl ? <Image src={player.photoUrl} alt="" fill sizes="130px" className="object-cover object-top" /> : <span>{player.displayName.slice(0, 1)}</span>}</div>
             <strong>{player.displayName}</strong><b>{formatScore(player.score)}</b><small>{player.appearances} PJ{player.position === "GK" ? ` · ${player.saves} PAR` : ` · ${player.goals} G · ${player.assists} A`}</small>
           </Link>
-        ))}</div> : <EmptyMini text="Los destacados aparecerán cuando haya estadísticas de partidos." />}
+        ) : <div key={position} className="club-v33-player-card club-v33-player-card-empty">
+          <span className={`club-v33-pos pos-${position.toLowerCase()}`}>{position}</span>
+          <div className="club-v33-player-photo"><span>—</span></div>
+          <strong>Sin destacado</strong><small>Sin estadísticas en esta posición</small>
+        </div>;
+        })}</div> : <EmptyMini text="Los destacados aparecerán cuando haya estadísticas de partidos." />}
       </Panel>
       <Panel title="Palmarés" icon="laurel" className="club-v33-palmares">
         {data.palmares.summary.total > 0 ? <div className="club-v33-trophies"><TrophyStat value={data.palmares.summary.total} label="Títulos"/><TrophyStat value={data.palmares.summary.leagues} label="Ligas"/><TrophyStat value={data.palmares.summary.champions} label="Champions"/><TrophyStat value={data.palmares.summary.cups} label="Copas"/><Link href={`/clubes/${teamCode}/historial`}>Ver palmarés completo →</Link></div> : <div className="club-v33-palmares-empty"><span><Icon name="trophy" /></span><p>Aún no ha conquistado títulos<br/>en la Liga de Leyendas.</p><em>La historia se escribe temporada a temporada.</em></div>}

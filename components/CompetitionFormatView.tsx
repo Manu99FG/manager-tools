@@ -38,10 +38,38 @@ export default function CompetitionKnockoutView({rounds,matches,mixed=false}:{ro
   const unassigned=matches.filter(m=>!m.roundId||!knownIds.has(m.roundId));
   return <section id="competition-knockout" className="competition-knockout" aria-label="Cuadro por rondas">
     <header className="competition-knockout-heading"><div><span className="competition-format-eyebrow">{mixed?'Segunda fase':'Camino al título'}</span><h2>Cuadro de eliminatorias</h2><p>Partidos organizados por ronda. Consulta cada encuentro para ver su detalle.</p></div><FormatMark type="CUP"/></header>
-    {knockoutRounds.length?<div className="competition-bracket" tabIndex={0} role="region" aria-label="Rondas de eliminatorias; desplaza horizontalmente para ver todas">{knockoutRounds.map(round=><RoundColumn key={round.id} round={round} matches={matches}/>)}</div>:<p className="competition-format-empty">{mixed?'Los cruces de eliminatorias aparecerán aquí cuando se publiquen sus rondas.':'Todavía no se han publicado las rondas de esta competición.'}</p>}
+    {knockoutRounds.length?<div className="competition-bracket" tabIndex={0} role="region" aria-label="Rondas de eliminatorias; desplaza horizontalmente para ver todas">{knockoutRounds.map(round=><RoundColumn key={round.id} round={round} matches={orderKnockoutMatches(round, knockoutRounds, matches)}/>)}</div>:<p className="competition-format-empty">{mixed?'Los cruces de eliminatorias aparecerán aquí cuando se publiquen sus rondas.':'Todavía no se han publicado las rondas de esta competición.'}</p>}
     {unknown.length?<details className="competition-unclassified"><summary>Otras rondas publicadas ({unknown.length})</summary><p>Estas rondas todavía no tienen una fase identificable.</p><div className="competition-bracket">{unknown.map(round=><RoundColumn key={round.id} round={round} matches={matches}/>)}</div></details>:null}
     {unassigned.length?<details className="competition-unclassified"><summary>Partidos sin ronda ({unassigned.length})</summary><div className="competition-unassigned-matches">{unassigned.map(match=><MatchCard key={match.id} match={match}/>)}</div></details>:null}
   </section>;
+}
+
+
+/** Align each return leg with its first leg without modifying persisted fixtures.
+ * Only reorder when every return leg has an unambiguous reversed pairing.
+ */
+function orderKnockoutMatches(round: Round, rounds: Round[], matches: Match[]): Match[] {
+  const current = matches.filter(m => m.roundId === round.id);
+  if (!/\b(vuelta|return|second leg)\b/i.test(round.name)) return current;
+  const baseName = (name: string) => name.toLowerCase()
+    .replace(/\b(ida|vuelta|first leg|second leg|return)\b/gi, '')
+    .replace(/[–—-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const first = rounds.find(r => r.id !== round.id &&
+    /\b(ida|first leg)\b/i.test(r.name) && baseName(r.name) === baseName(round.name));
+  if (!first) return current;
+  const firstLegs = matches.filter(m => m.roundId === first.id);
+  if (firstLegs.length !== current.length) return current;
+  const unused = [...current];
+  const ordered: Match[] = [];
+  for (const leg of firstLegs) {
+    const candidates = unused.filter(m =>
+      m.homeTeamCode === leg.awayTeamCode && m.awayTeamCode === leg.homeTeamCode);
+    if (candidates.length !== 1) return current;
+    const paired = candidates[0];
+    ordered.push(paired);
+    unused.splice(unused.indexOf(paired), 1);
+  }
+  return unused.length === 0 ? ordered : current;
 }
 
   function MatchCard({match}:{match:Match}) {

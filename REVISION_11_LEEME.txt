@@ -1,0 +1,4 @@
+REVISION 11
+La vista previa final es de solo lectura incluso si la competición de destino ya tiene calendario.
+Los conflictos se muestran sin permitir finalizar ni modificar los partidos existentes.
+La incorporación de equipos a calendarios existentes requiere una solución específica de integración; no se realiza automáticamente.

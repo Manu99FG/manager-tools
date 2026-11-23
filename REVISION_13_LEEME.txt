@@ -1,0 +1,11 @@
+REVISION 13 - Sustitución de equipos provisionales en cruces oficiales
+
+Se actualiza app/api/competitions/qualification/route.ts.
+- Traduce las etiquetas de puestos (1º Grupo A, 2º Grupo B, etc.) a clubes clasificados.
+- Conserva los IDs de los partidos, las rondas, fechas y la localía en ida y vuelta.
+- Inscribe equipos en competition_teams sin duplicar códigos existentes.
+- No regenera los cruces existentes.
+- Rechaza la sustitución si faltan etiquetas, si alguna no aparece dos veces o si los partidos afectados tienen resultados.
+
+ATENCIÓN: Las escrituras Supabase se hacen por pasos, NO dentro de una transacción SQL. Ante fallos de red o concurrencia, podría quedar una aplicación parcial; para producción debe migrarse a una función RPC transaccional y probarse con una copia de la base de datos.
+No se ha compilado ni probado contra Supabase real.

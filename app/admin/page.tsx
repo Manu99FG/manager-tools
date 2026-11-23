@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdminImagenes from "@/components/AdminImagenes";
 
 import AdminLineupsDashboard from "@/components/AdminLineupsDashboard";
 import AdminSeasonsHub from "@/components/AdminSeasonsHub";
@@ -47,6 +48,7 @@ type AdminStats = {
 const SECTIONS = [
   ["inicio", "Resumen"],
   ["clubes", "Clubes"],
+  ["imagenes", "Escudos y portadas"],
   ["temporadas", "Temporadas"],
   ["competiciones", "Competiciones"],
   ["sorteos", "Sorteos"],
@@ -110,6 +112,8 @@ export default async function AdminPage({ searchParams }: Props) {
 
 async function renderSection(section: AdminSection) {
   switch (section) {
+    case "imagenes":
+      return <AdminImagenes />;
     case "clubes":
       return <ClubesSection />;
     case "temporadas":
@@ -137,6 +141,7 @@ async function ResumenSection() {
   const stats = await getAdminStats();
   const areas = [
     ["Clubes", "clubes", "Clase, identidad y metadatos de los clubes."],
+    ["Escudos y portadas", "imagenes", "Imágenes de clubes y competiciones."],
     ["Temporadas", "temporadas", "Abrir, cerrar y organizar temporadas."],
     ["Competiciones", "competiciones", "Formatos, equipos, grupos, calendarios y resultados."],
     ["Sorteos", "sorteos", "Bombos, sorteos y asignaciones automáticas."],

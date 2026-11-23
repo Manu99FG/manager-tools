@@ -34,6 +34,18 @@ export default function PlayersTable({ players, team }: { players: PlayerWithHis
   const [positions, setPositions] = useState<Record<string, EsmsPosition>>({});
   const [query, setQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState<"ALL" | EsmsPosition>("ALL");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [numericFilters, setNumericFilters] = useState<Record<string, { min: string; max: string }>>({});
+  const [nationality, setNationality] = useState("");
+  const filterGroups: Array<{ title: string; fields: Array<keyof EsmsPlayer> }> = [
+    { title: "Datos generales", fields: ["age"] },
+    { title: "Habilidades", fields: ["st", "tk", "ps", "sh", "ag"] },
+    { title: "Progresión y experiencia", fields: ["kab", "tab", "pab", "sab", "gam"] },
+    { title: "Participación y rendimiento", fields: ["sub", "min", "mom", "sav", "con", "ktk", "kps", "sht", "gls", "ass"] },
+    { title: "Disciplina y estado", fields: ["dp", "inj", "sus", "fit"] },
+  ];
+  const setBound = (field: string, bound: "min" | "max", value: string) =>
+    setNumericFilters(current => ({ ...current, [field]: { min: current[field]?.min ?? "", max: current[field]?.max ?? "", [bound]: value } }));
 
   function getPlayerKey(player: EsmsPlayer): string {
     return `${team}:${player.name}`;
@@ -76,7 +88,13 @@ export default function PlayersTable({ players, team }: { players: PlayerWithHis
     const filtered = players.filter((player) => {
       const matchesName = !normalized || player.name.replaceAll("_", " ").toLocaleLowerCase("es").includes(normalized);
       const matchesPosition = positionFilter === "ALL" || resolvePosition(player) === positionFilter;
-      return matchesName && matchesPosition;
+      const matchesNationality = !nationality.trim() || player.nat.toLowerCase().includes(nationality.trim().toLowerCase());
+      const matchesNumbers = Object.entries(numericFilters).every(([field, range]) => {
+        const value = player[field as keyof EsmsPlayer];
+        if (typeof value !== "number") return true;
+        return (range.min === "" || value >= Number(range.min)) && (range.max === "" || value <= Number(range.max));
+      });
+      return matchesName && matchesPosition && matchesNationality && matchesNumbers;
     });
     if (!sortKey) return filtered;
     return [...filtered].sort((a, b) => {
@@ -92,7 +110,7 @@ export default function PlayersTable({ players, team }: { players: PlayerWithHis
       const result = String(aValue).localeCompare(String(bValue), "es", { sensitivity: "base" });
       return sortDirection === "asc" ? result : -result;
     });
-  }, [players, positions, positionFilter, query, sortDirection, sortKey]);
+  }, [players, positions, positionFilter, query, nationality, numericFilters, sortDirection, sortKey]);
 
   function SortHeader({ label, field, align = "center" }: { label: string; field: PlayerSortKey; align?: "left" | "center" }) {
     const active = sortKey === field;
@@ -132,6 +150,29 @@ export default function PlayersTable({ players, team }: { players: PlayerWithHis
         </div>
       </div>
 
+      <div className="border-b border-[var(--mt-line)] bg-[var(--mt-surface)] px-5 pb-4 sm:px-6">
+        <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen(!advancedOpen)} className="rounded-lg border border-[var(--mt-line)] px-3 py-2 text-xs font-bold text-[var(--mt-gold)]">
+          {advancedOpen ? "Ocultar filtros avanzados" : "Mostrar filtros avanzados"}
+        </button>
+        {advancedOpen && <div className="mt-4 space-y-4">
+          <label className="flex max-w-xs flex-col gap-1 text-xs font-semibold">Nacionalidad (NAT)
+            <input value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Ej. ESP" className="rounded-lg border border-[var(--mt-line)] bg-[var(--mt-surface)] p-2" />
+          </label>
+          {filterGroups.map(group => <fieldset key={group.title} className="rounded-xl border border-[var(--mt-line)] p-3">
+            <legend className="px-2 text-xs font-black text-[var(--mt-gold)]">{group.title}</legend>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+              {group.fields.map(field => <div key={field} className="space-y-1">
+                <div className="text-[11px] font-bold uppercase">{field}</div>
+                <div className="flex gap-1">
+                  <input type="number" aria-label={`${field} mínimo`} placeholder="Mín." value={numericFilters[field]?.min ?? ""} onChange={e => setBound(field, "min", e.target.value)} className="w-full min-w-0 rounded-md border border-[var(--mt-line)] bg-[var(--mt-surface)] p-1.5 text-xs" />
+                  <input type="number" aria-label={`${field} máximo`} placeholder="Máx." value={numericFilters[field]?.max ?? ""} onChange={e => setBound(field, "max", e.target.value)} className="w-full min-w-0 rounded-md border border-[var(--mt-line)] bg-[var(--mt-surface)] p-1.5 text-xs" />
+                </div>
+              </div>)}
+            </div>
+          </fieldset>)}
+          <button type="button" onClick={() => { setNumericFilters({}); setNationality(""); }} className="rounded-lg border border-[var(--mt-line)] px-3 py-2 text-xs font-bold">Limpiar filtros avanzados</button>
+        </div>}
+      </div>
       <div className="overflow-x-auto bg-[var(--mt-surface)]">
         <table className="w-full min-w-max border-collapse text-[10px] text-[var(--mt-text)]">
           <thead className="border-b border-[var(--mt-line)] bg-[var(--mt-surface-soft)] text-[var(--mt-muted)]">

@@ -144,7 +144,7 @@ async function saveRules(competitionId: string, rawRules: unknown) {
     }
     if (rule.destinationCompetitionId === competitionId) {
       return NextResponse.json(
-        { error: "La competición de destino debe ser distinta de la pretemporada." },
+        { error: "La competición de destino debe ser distinta de la competición de origen." },
         { status: 400 }
       );
     }
@@ -316,10 +316,14 @@ async function applyRules(
     teamCodes: string[];
     inserted: number;
     pendingInsert: number;
+    calendarConflict: boolean;
+    nextSeed: number;
+    missingCodes: string[];
+    replacements: Array<{ id: string; home_team_code: string; away_team_code: string; originalHome: string; originalAway: string }>;
   }> = [];
 
   for (const [destinationCompetitionId, teamCodes] of assignments) {
-    const [{ data: destination, error: destinationError }, existingResult, matchCountResult] =
+    const [{ data: destination, error: destinationError }, existingResult, destinationMatchesResult] =
       await Promise.all([
         supabase
           .from("competitions")
@@ -332,13 +336,13 @@ async function applyRules(
           .eq("competition_id", destinationCompetitionId),
         supabase
           .from("matches")
-          .select("id", { count: "exact", head: true })
+          .select("id,round_id,home_team_code,away_team_code,status,home_score,away_score,played_at")
           .eq("competition_id", destinationCompetitionId),
       ]);
 
     if (destinationError) throw destinationError;
     if (existingResult.error) throw existingResult.error;
-    if (matchCountResult.error) throw matchCountResult.error;
+    if (destinationMatchesResult.error) throw destinationMatchesResult.error;
     if (!destination || destination.season_id !== source.season_id) {
       return NextResponse.json(
         { error: "Una competición de destino no existe o pertenece a otra temporada." },
@@ -349,37 +353,73 @@ async function applyRules(
     const existing = new Set((existingResult.data ?? []).map((row) => row.team_code));
     const missing = teamCodes.filter((code) => !existing.has(code));
 
-    if ((matchCountResult.count ?? 0) > 0 && missing.length) {
-      return NextResponse.json(
-        {
-          error: `«${destination.name}» ya tiene calendario generado. No se pueden añadir ${missing.length} clasificado(s).`,
-        },
-        { status: 409 }
-      );
+    // Los cuadros oficiales contienen etiquetas de posición, no clubes reales.
+    // Se reemplazan únicamente las etiquetas de cuartos (ida y vuelta).
+    const destinationMatches = destinationMatchesResult.data ?? [];
+    const groupRanks = new Map<string, string>();
+    for (const rule of rules.filter((rule) => rule.destination_competition_id === destinationCompetitionId)) {
+      const standing = standingsByGroup.get(rule.group_name) ?? [];
+      const groupLetter = rule.group_name.match(/(?:Grupo\s+)?([A-D])$/i)?.[1]?.toUpperCase();
+      if (!groupLetter) continue;
+      for (let rank = rule.start_position; rank <= rule.end_position; rank++) {
+        const team = standing.find((row) => row.position === rank)?.teamCode;
+        if (team) groupRanks.set(`${rank}º Grupo ${groupLetter}`, team);
+      }
+    }
+    const replacements = destinationMatches.flatMap((match) => {
+      const home = groupRanks.get(match.home_team_code);
+      const away = groupRanks.get(match.away_team_code);
+      if (!home && !away) return [];
+      return [{ id: match.id, home_team_code: home ?? match.home_team_code,
+        away_team_code: away ?? match.away_team_code,
+        originalHome: match.home_team_code, originalAway: match.away_team_code }];
+    });
+    // Cada plaza de cuartos debe aparecer en dos partidos de rondas distintas:
+    // ida y vuelta del MISMO cruce, con localía invertida. No basta con contar
+    // dos apariciones: podrían pertenecer a eliminatorias diferentes.
+    const placeholderMatches = destinationMatches.filter((match) =>
+      groupRanks.has(match.home_team_code) || groupRanks.has(match.away_team_code)
+    );
+    const slots = [...groupRanks.keys()];
+    const matchPairKey = (home: string, away: string) =>
+      [home, away].sort().join("::");
+    const pairs = new Map<string, typeof destinationMatches>();
+    for (const match of placeholderMatches) {
+      const key = matchPairKey(match.home_team_code, match.away_team_code);
+      pairs.set(key, [...(pairs.get(key) ?? []), match]);
+    }
+    const validHomeAway = [...pairs.values()].every((legs) =>
+      legs.length === 2 &&
+      String(legs[0].round_id) !== String(legs[1].round_id) &&
+      legs[0].home_team_code === legs[1].away_team_code &&
+      legs[0].away_team_code === legs[1].home_team_code
+    );
+    const validSlots = slots.every((placeholder) =>
+      placeholderMatches.filter((match) =>
+        match.home_team_code === placeholder || match.away_team_code === placeholder
+      ).length === 2
+    );
+    const safeToReplace = placeholderMatches.every((match) =>
+      match.status === "SCHEDULED" && match.home_score == null &&
+      match.away_score == null && match.played_at == null
+    );
+    const calendarConflict = destinationMatches.length > 0 && slots.length > 0 &&
+      (placeholderMatches.length === 0 || !validSlots || !validHomeAway || !safeToReplace);
+    if (calendarConflict && options.write) {
+      return NextResponse.json({ error: `«${destination.name}» tiene cruces incompatibles o ya disputados. No se ha modificado ningún partido.` }, { status: 409 });
     }
 
-    if (missing.length && options.write) {
-      const maxSeed = Math.max(
-        0,
-        ...(existingResult.data ?? []).map((row) => Number(row.seed ?? 0))
-      );
-      const { error: insertError } = await supabase.from("competition_teams").insert(
-        missing.map((teamCode, index) => ({
-          competition_id: destinationCompetitionId,
-          team_code: teamCode,
-          seed: maxSeed + index + 1,
-          group_name: null,
-        }))
-      );
-      if (insertError) throw insertError;
-    }
-
+    const maxSeed = Math.max(0, ...(existingResult.data ?? []).map((row) => Number(row.seed) || 0));
     preview.push({
+      nextSeed: maxSeed + 1,
+      missingCodes: missing,
       destinationCompetitionId,
       destinationName: destination.name,
       teamCodes,
       inserted: options.write ? missing.length : 0,
       pendingInsert: missing.length,
+      calendarConflict,
+      replacements,
     });
   }
 
@@ -389,6 +429,43 @@ async function applyRules(
     matchesCreated: number;
     roundsCreated: number;
   }> = [];
+
+  // Sustituir etiquetas de posición sin regenerar rondas ni partidos.
+  // Validar todos los destinos antes de escribir para evitar conflictos conocidos.
+  if (options.write && preview.some((item) => item.calendarConflict)) {
+    return NextResponse.json({ error: "Existen cruces incompatibles. No se ha finalizado." }, { status: 409 });
+  }
+
+  // Inscribir los equipos antes de actualizar los cruces existentes.
+  if (options.write) {
+    for (const item of preview) {
+      if (!item.missingCodes.length) continue;
+      const { error: insertError } = await supabase.from("competition_teams").insert(
+        item.missingCodes.map((teamCode, index) => ({
+          competition_id: item.destinationCompetitionId,
+          team_code: teamCode,
+          seed: item.nextSeed + index,
+        }))
+      );
+      if (insertError) throw insertError;
+    }
+  }
+
+  if (options.write) {
+    for (const item of preview) {
+      for (const match of item.replacements) {
+        const { data, error } = await supabase.from("matches")
+          .update({ home_team_code: match.home_team_code, away_team_code: match.away_team_code })
+          .eq("id", match.id)
+          .eq("home_team_code", match.originalHome)
+          .eq("away_team_code", match.originalAway)
+          .eq("status", "SCHEDULED")
+          .select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("Un cruce ha cambiado durante la clasificación. Revisa el cuadro antes de reintentar.");
+      }
+    }
+  }
 
   // Al aplicar/finalizar el reparto, las ligas de destino ya tienen su lista definitiva
   // de participantes. Generamos inmediatamente sus calendarios si todavía están vacíos.
@@ -415,11 +492,11 @@ async function applyRules(
   }
 
   // Importante: aquí NO se copian matches ni match_player_stats. Las estadísticas
-  // de la pretemporada siguen ligadas a sus match_id originales y la liga destino
+  // de la competición de origen siguen ligadas a sus match_id originales y el destino
   // empieza con sus propios partidos/estadísticas desde cero.
   return NextResponse.json({
     ok: true,
-    assignments: preview,
+    assignments: preview.map(({ nextSeed: _nextSeed, missingCodes: _missingCodes, replacements: _replacements, ...assignment }) => assignment),
     generatedCalendars,
     finalized: options.finalizeSource,
   });

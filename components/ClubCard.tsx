@@ -1,4 +1,4 @@
-import Image from "next/image";
+import ManagerMediaImage from "@/components/ManagerMediaImage";
 import Link from "next/link";
 
 type ClubCardProps = {
@@ -17,7 +17,7 @@ export default function ClubCard({ code, name, logo, modified }: ClubCardProps) 
       <div className="absolute inset-y-0 left-0 w-[3px] bg-[var(--mt-gold)] opacity-0 transition group-hover:opacity-100" />
 
       <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[13px] border border-[var(--mt-line)] bg-[var(--mt-surface)]">
-        <Image src={logo} alt={`Escudo de ${name}`} fill sizes="74px" className="object-contain p-3" />
+        <ManagerMediaImage kind="club" entityId={code} fallback={logo} alt={`Escudo de ${name}`} sizes="74px" className="object-contain p-3" />
       </div>
 
       <div className="min-w-0 flex-1">

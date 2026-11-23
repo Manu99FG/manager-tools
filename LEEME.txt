@@ -1,0 +1,16 @@
+MANAGER TOOLS - FASE 3 - INTEGRACION VISUAL PARCIAL
+
+Esta actualización se aplica DESPUES de las fases 1 y 2, sobre el proyecto original.
+
+Archivos:
+- app/api/media/route.ts: consulta publica de imagenes personalizadas; no permite escrituras.
+- components/ManagerMediaImage.tsx: componente con imagen de reserva.
+- components/ClubCard.tsx: escudos personalizados en las tarjetas que usan este componente.
+- components/CompetitionsHub.tsx: portadas personalizadas en el catalogo de competiciones.
+
+REQUISITO: ejecutar sql/30-media-manager.sql de la Fase 2 en Supabase.
+La API de administracion de la Fase 2 mantiene el control de acceso para escribir.
+
+LIMITACIONES: NO se han integrado todavia todos los lugares que muestran escudos ni
+las portadas de detalles de competicion. Tampoco se han completado los otros cambios.
+NO desplegar como version final sin pruebas y revision de integracion.

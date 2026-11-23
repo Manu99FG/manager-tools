@@ -24,9 +24,6 @@ type Props = {
 };
 
 const LEAGUE_RULES = {
-  // Activa el formato extendido del simulador: DM y AM son posiciones válidas.
-  Positions: 1,
-  Tactic_7: 1,
   Max_Skill: 30,
   Min_DF: 2,
   Max_DF: 8,
@@ -246,7 +243,7 @@ export default function ManualShtChecker({
             </h2>
 
             <p className="mt-1 text-xs leading-5 text-[var(--mt-muted)]">
-              Importa tu archivo ABREVIATURAsht.txt o pega su contenido. La validación reproduce el código del checker original que has facilitado.
+              Importa el archivo escrito a mano o pega su contenido. La validación reproduce el código del checker original que has facilitado.
             </p>
           </div>
 

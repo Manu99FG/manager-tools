@@ -1,0 +1,13 @@
+MANAGER TOOLS — REVISIÓN 7 (incremental)
+
+Base: MANAGER_TOOLS_INTEGRADO_REVISION_6.zip
+
+Fechas de rondas (components/CompetitionRoundDatesAdmin.tsx):
+- Guardado múltiple de las rondas modificadas y resultados por ronda.
+- Bloqueo de fechas invertidas y prevención de guardados simultáneos.
+- Orden por número de ronda y aviso no bloqueante de solapamiento temporal.
+- Aviso explícito: editar fechas de ronda no modifica fechas de partidos.
+- Conservación de ediciones locales durante actualizaciones del componente.
+
+Sin cambios en el esquema de Supabase ni en las integraciones Dropbox.
+No se ha desplegado. Compilación y pruebas de integración pendientes.

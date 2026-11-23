@@ -153,8 +153,56 @@ export default function CompetitionStandingZonesAdmin({
     setZones((current) => current.filter((zone) => zone.key !== key));
   }
 
+  function applyRecommendedZones() {
+    const selected = leagueCompetitions.find((competition) => competition.id === competitionId);
+    if (!selected) return;
+    const name = selected.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const recommended = name.includes("primera")
+      ? [
+          { label: "LÍDER", startPosition: 1, endPosition: 1, color: "#9A7425" },
+          { label: "DESCENSO", startPosition: 14, endPosition: 16, color: "#D94B4B" },
+        ]
+      : name.includes("segunda")
+        ? [
+            { label: "ASCENSO DIRECTO", startPosition: 1, endPosition: 2, color: "#2EA66B" },
+            { label: "PLAYOFF", startPosition: 3, endPosition: 6, color: "#3D7EDB" },
+          ]
+        : null;
+    if (!recommended) {
+      setMessage("Las zonas recomendadas solo están definidas para Primera y Segunda División.");
+      return;
+    }
+    if (zones.length && !window.confirm("¿Sustituir las zonas actuales? Los cambios no se guardarán hasta pulsar Guardar configuración.")) return;
+    setZones(recommended.map((zone, index) => ({ ...zone, key: `recommended-${index}` })));
+    setMessage("Zonas recomendadas cargadas. Pulsa Guardar configuración para aplicarlas.");
+  }
+
   async function saveZones() {
-    if (!competitionId) return;
+    if (!competitionId || loading) return;
+
+    // Validate before sending, keeping the same rules as the API.
+    for (const zone of zones) {
+      if (!zone.label.trim()) {
+        setMessage("Todas las zonas necesitan un nombre.");
+        return;
+      }
+      if (!Number.isInteger(zone.startPosition) || !Number.isInteger(zone.endPosition) ||
+          zone.startPosition < 1 || zone.endPosition < zone.startPosition) {
+        setMessage(`Rango inválido en "${zone.label}".`);
+        return;
+      }
+      if (!/^#[0-9A-Fa-f]{6}$/.test(zone.color)) {
+        setMessage(`Color inválido en "${zone.label}".`);
+        return;
+      }
+    }
+    const ordered = [...zones].sort((a, b) => a.startPosition - b.startPosition);
+    for (let i = 1; i < ordered.length; i++) {
+      if (ordered[i].startPosition <= ordered[i - 1].endPosition) {
+        setMessage(`Las zonas "${ordered[i - 1].label}" y "${ordered[i].label}" se solapan.`);
+        return;
+      }
+    }
 
     setSaving(true);
     setMessage("");
@@ -225,6 +273,9 @@ export default function CompetitionStandingZonesAdmin({
       ) : (
         <>
           <div className="v3111-admin-presets">
+            <button type="button" disabled={loading || saving} onClick={applyRecommendedZones}>
+              Aplicar zonas recomendadas (Primera / Segunda)
+            </button>
             <span>Añadir rápido:</span>
             {PRESETS.map((preset) => (
               <button

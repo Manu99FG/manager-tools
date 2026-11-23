@@ -10,12 +10,22 @@ import type { HomeDashboardData } from "@/lib/home-dashboard";
 const POSITIONS = ["GK", "DF", "DM", "MF", "AM", "FW"];
 
 export default function HomeDashboard({ data }: { data: HomeDashboardData }) {
+  const firstDivision = data.competitions.find(
+    (competition) => competition.type === "LEAGUE" &&
+      /(?:primera|1\s*[ªº°]?\s*(?:divisi[oó]n)?)/i.test(competition.name) &&
+      competition.status === "ACTIVE"
+  ) ?? data.competitions.find(
+    (competition) => competition.type === "LEAGUE" &&
+      /(?:primera|1\s*[ªº°]?\s*(?:divisi[oó]n)?)/i.test(competition.name)
+  );
   const defaultCompetition =
+    firstDivision ??
     data.competitions.find((competition) => competition.status === "ACTIVE") ??
     data.competitions[0] ??
     null;
 
   const leagueDefault =
+    firstDivision ??
     data.competitions.find(
       (competition) =>
         competition.status === "ACTIVE" && competition.type === "LEAGUE"

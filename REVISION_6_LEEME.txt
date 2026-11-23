@@ -1,0 +1,12 @@
+MANAGER TOOLS — REVISIÓN 6 (incremental)
+
+Base: MANAGER_TOOLS_INTEGRADO_REVISION_5(1).zip.
+
+Cambio realizado:
+- components/CompetitionStandingZonesAdmin.tsx: validación en el navegador de nombres, rangos enteros positivos, colores hexadecimales y solapamientos antes de enviar la configuración.
+- Evita guardar zonas mientras la configuración de la competición sigue cargándose.
+- La validación del servidor se mantiene intacta como protección definitiva.
+
+Conservado: filtros avanzados de jugadores, fechas de rondas y resto de módulos de revisión 5.
+
+Estado: NO APTO PARA PRODUCCIÓN. No se ha ejecutado npm run build ni pruebas conectadas a Supabase/Dropbox. No se ha desplegado.

@@ -1,0 +1,7 @@
+MANAGER TOOLS — REVISIÓN 3
+Base: MANAGER_TOOLS_INTEGRADO_REVISION_2.zip
+Cambio de esta revisión: components/PlayersTable.tsx
+Se añaden filtros avanzados combinables (mínimo/máximo) para los 24 campos numéricos ESMS y búsqueda por nacionalidad. Se mantienen nombre, posición y ordenación de columnas.
+Alcance: tabla de plantilla del club. No se ha integrado todavía en el buscador global de jugadores.
+No se ha ejecutado npm run build: dependencias node_modules ausentes en este entorno. Requiere npm ci y npm run build en un entorno con acceso a paquetes.
+No desplegar en producción sin verificar compilación, base de datos y regresiones.
